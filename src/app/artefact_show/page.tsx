@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import ArtefactsClient from "./ArtefactsClient";
+import ArtefactsClient from "./Artefacts_Show";
 
 export default function ArtefactsPageWrapper() {
   return (

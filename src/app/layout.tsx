@@ -26,7 +26,7 @@ const notoSans = Noto_Sans({
 
 export const metadata: Metadata = {
   title: "The End Page Museum",
-  description: "An aventure down Memory Lane",
+  description: "An Adventure Down Memory Lane",
 };
 
 export default function RootLayout({

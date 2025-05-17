@@ -19,23 +19,24 @@ const scaleToWidth = (originalPx: number, currentSceneWidth: number): number => 
 const initialSceneStyle: CSSProperties = {
   width: `${DESIGN_WIDTH}px`,
   height: `${DESIGN_HEIGHT}px`,
-  position: "relative",
-  overflow: "hidden",
+  position: "relative", 
+  overflow: "hidden",   
   backgroundImage: "url('/background_main.png')",
   backgroundSize: "cover",
   backgroundPosition: "center",
-  display: "flex",
-  flexDirection: "column",
+  display: "flex", 
+  flexDirection: "column", 
   justifyContent: "space-between",
+  padding: `${(40 / DESIGN_WIDTH) * DESIGN_WIDTH}px`,
 };
 
-export default function ArtefactsClient() {
+
+export default function ArtefactShowClient() {
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "Inconnu";
   const router = useRouter();
+  // const artefactId = searchParams.get("id"); 
 
   const [isLeaving, setIsLeaving] = useState(false);
-  const items = Array.from({ length: 10 }, (_, i) => i + 1); 
 
   const [sceneStyle, setSceneStyle] = useState<CSSProperties>(initialSceneStyle);
   const [currentSceneWidth, setCurrentSceneWidth] = useState<number>(DESIGN_WIDTH);
@@ -57,10 +58,23 @@ export default function ArtefactsClient() {
       
       setCurrentSceneWidth(newWidth);
 
+      const newPaddingValue = scaleToWidth(40, newWidth); 
+
       const newStyles: CSSProperties = {
-        ...initialSceneStyle,
         width: `${newWidth}px`,
         height: `${newHeight}px`,
+        position: "relative", 
+        overflow: "hidden",   
+        backgroundImage: "url('/background_main.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        display: "flex", 
+        flexDirection: "column", 
+        justifyContent: "space-between",
+        paddingTop: `${newPaddingValue}px`,
+        paddingBottom: `${newPaddingValue}px`,
+        paddingLeft: `${newPaddingValue}px`,
+        paddingRight: `${newPaddingValue}px`,
       };
       setSceneStyle(newStyles);
     };
@@ -68,7 +82,7 @@ export default function ArtefactsClient() {
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, []); 
 
   const dynamicFontSize = (originalPxSize: number): string => {
     return `${scaleToWidth(originalPxSize, currentSceneWidth)}px`;
@@ -81,30 +95,21 @@ export default function ArtefactsClient() {
   const handleReturn = () => {
     setIsLeaving(true);
     setTimeout(() => {
-      router.push("/");
+      router.push("/"); 
     }, 600);
   };
 
-  // Nouvelle fonction pour gérer le clic sur un item
-  const handleItemClick = (itemId: number) => {
-    setIsLeaving(true); // Déclenche l'animation de sortie
-    setTimeout(() => {
-      // Vous pouvez passer l'ID de l'item en query param si nécessaire
-      router.push(`/artefact_show?id=${itemId}`);
-      // Si vous ne voulez pas passer d'ID pour l'instant:
-      // router.push("/artefact_show");
-    }, 600); // Doit correspondre à la durée de la transition de sortie
-  };
+  // Valeurs de design originales pour la nouvelle mise en page
+  const infoBoxPadding = 25;
+  const titleFontSize = 50; 
+  const descriptionFontSize = 40; 
+  const buttonPaddingX = 24;
+  const buttonPaddingY = 8;
+  const buttonFontSize = 25;
 
-  // Valeurs de design originales
-  const titleMarginTop = 185; 
-  const emailMarginTop = -10; 
-  // const gridMarginVertical = 40; // Commenté car géré par space-between
-  const gridGap = 80; 
-  const itemSize = 160; 
-  const buttonPaddingX = 24; 
-  const buttonPaddingY = 8;  
-  const buttonMarginBottom = 80; 
+  const loremTitle = "Lorem Ipsum Dolor Sit Amet";
+  const loremDescription = `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.`;
+
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black">
@@ -121,84 +126,73 @@ export default function ArtefactsClient() {
           )}
 
           <motion.div
-            key="artefacts-page-content"
+            key="artefact-show-page-content"
             style={sceneStyle}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6 }}
+            className="text-white" 
           >
-            {/* Section Titre */}
-            <div className="text-center">
-              <div
-                className="text-black font-bold"
-                style={{ 
-                  fontFamily: "Limelight, cursive",
-                  fontSize: dynamicFontSize(60),
-                  marginTop: dynamicSize(titleMarginTop),
-                }}
-              >
-                ARTEFACTS
-              </div>
-              <div
-                className="text-black font-bold"
-                style={{
-                  fontFamily: "'Faculty Glyphic', serif", // Assurez-vous que cette police est chargée globalement
-                  fontSize: dynamicFontSize(48),
-                  marginTop: dynamicSize(emailMarginTop),
-                }}
-              >
-                {email}
-              </div>
-            </div>
-
-            {/* Section Grille d'artefacts */}
             <div 
-              className="flex justify-center"
+              className="flex flex-row flex-grow" 
+              style={{ gap: dynamicSize(30) }} 
             >
+              {/* Bloc Gauche (Affichage de l'artefact) */}
               <div 
-                className="grid grid-cols-5"
+                className="flex-grow-[3] bg-gray-700/30 rounded-xl shadow-lg flex items-center justify-center"
+              >
+                <span style={{ fontSize: dynamicFontSize(30), color: 'rgba(255,255,255,0.7)' }}>
+                  Zone Artefact (ex: Image)
+                </span>
+              </div>
+
+              {/* Bloc Droit (Informations) */}
+              <div
+                className="flex-grow-[1] rounded-xl shadow-lg flex flex-col" 
                 style={{
-                  gap: dynamicSize(gridGap),
+                  backgroundColor: "rgba(255, 255, 255, 0.3)", 
+                  padding: dynamicSize(infoBoxPadding),
+                  overflowY: 'auto', 
+                  maxHeight: `calc(100% - ${dynamicSize(0)})`,
+                  // Ajout du backdrop-filter pour l'effet de flou
+                  backdropFilter: 'blur(8px)', // Vous pouvez ajuster la valeur du flou (ex: 'blur(4px)', 'blur(12px)')
+                  WebkitBackdropFilter: 'blur(8px)', // Pour la compatibilité avec Safari plus ancien
                 }}
               >
-                {items.map((item) => (
-                  <div
-                    key={item}
-                    className="bg-white/50 rounded-xl shadow-lg hover:scale-105 transition cursor-pointer" // Ajout de cursor-pointer
-                    style={{
-                      width: dynamicSize(itemSize),
-                      height: dynamicSize(itemSize),
-                    }}
-                    onClick={() => handleItemClick(item)} // Ajout du gestionnaire de clic
-                    role="button" // Pour l'accessibilité
-                    tabIndex={0} // Pour rendre le div focusable
-                    onKeyDown={(e) => { // Pour l'accessibilité au clavier (Enter/Space)
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        handleItemClick(item);
-                      }
-                    }}
-                  >
-                    {/* Vous pouvez mettre du contenu à l'intérieur de l'item ici si besoin */}
-                    {/* Par exemple: <span className="text-black">{item}</span> */}
-                  </div>
-                ))}
+                <h2
+                  className="font-bold text-black mb-4" 
+                  style={{
+                    fontFamily: "'Faculty Glyphic', serif", 
+                    fontSize: dynamicFontSize(titleFontSize), 
+                    lineHeight: dynamicSize(titleFontSize * 1.2), 
+                  }}
+                >
+                  {loremTitle}
+                </h2>
+                <p
+                  className="text-gray-700" 
+                  style={{
+                    fontFamily: "'Faculty Glyphic', serif", 
+                    fontSize: dynamicFontSize(descriptionFontSize), 
+                    lineHeight: dynamicSize(descriptionFontSize * 1.5), 
+                    whiteSpace: 'pre-line', 
+                  }}
+                >
+                  {loremDescription}
+                </p>
               </div>
             </div>
-
-            {/* Section Bouton Retour */}
+            
             <div 
-              className="text-center"
-              style={{
-                marginBottom: dynamicSize(buttonMarginBottom),
-              }}
+              className="text-center mt-auto pt-4" 
             >
               <button
                 onClick={handleReturn}
                 className="bg-[#8B4513] hover:bg-[#5C3210] font-bold text-white rounded-full transition"
                 style={{
-                  fontFamily: "'Faculty Glyphic', serif", // Assurez-vous que cette police est chargée globalement
-                  fontSize: dynamicFontSize(25), 
+                  fontFamily: "'Faculty Glyphic', serif", 
+                  fontSize: dynamicFontSize(buttonFontSize), 
                   paddingLeft: dynamicSize(buttonPaddingX),
                   paddingRight: dynamicSize(buttonPaddingX),
                   paddingTop: dynamicSize(buttonPaddingY),
