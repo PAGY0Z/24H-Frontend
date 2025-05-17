@@ -33,4 +33,4 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/flow-grow/flowgrow-frontend:latest
+          tags: ghcr.io/pagy0z/webcup-frontend:latest
