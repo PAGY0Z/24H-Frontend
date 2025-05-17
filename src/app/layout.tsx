@@ -24,6 +24,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Import de la police Limelight depuis Google Fonts */}
+        <link href="https://fonts.googleapis.com/css2?family=Limelight&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Faculty+Glyphic&display=swap" rel="stylesheet" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
