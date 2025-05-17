@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
 
 export default function Home() {
   const [showModal, setShowModal] = useState(false);
@@ -150,16 +151,20 @@ export default function Home() {
 
           {/* Panneau gauche */}
           <button
-            className="absolute bottom-60 left-[8%] bg-transparent border-none outline-none"
+            className="absolute bottom-20 left-[8%] bg-transparent border-none outline-none"
             onMouseEnter={() => setIsLeftHovered(true)}
             onMouseLeave={() => setIsLeftHovered(false)}
           >
-            <img
+            <Image
               src={
-                isLeftHovered ? "panneau_negatif_hover.png" : "panneau_negatif.png"
+                isLeftHovered
+                  ? "/panneau_negatif_hover.png"
+                  : "/panneau_negatif.png"
               }
               alt="Panneau gauche"
-              className="w-80 h-auto hover:scale-110 transition"
+              width={320} // équivalent à w-80 (80 * 4 px)
+              height={0} // facultatif si tu utilises `style` ou `className` pour auto height
+              className="h-auto hover:scale-110 transition"
             />
           </button>
 
@@ -168,25 +173,31 @@ export default function Home() {
             onClick={() => setShowModal(true)}
             className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-transparent border-none outline-none"
           >
-            <img
-              src="porte.png"
+            <Image
+              src="/porte.png"
               alt="Porte centrale"
-              className="h-100 h-auto hover:scale-110 transition"
+              width={300} // ajuste selon ta maquette
+              height={0} // garde la hauteur automatique
+              className="h-auto hover:scale-110 transition"
             />
           </button>
 
           {/* Panneau droit */}
           <button
-            className="absolute bottom-60 right-[8%] bg-transparent border-none outline-none"
+            className="absolute bottom-20 right-[8%] bg-transparent border-none outline-none"
             onMouseEnter={() => setIsRightHovered(true)}
             onMouseLeave={() => setIsRightHovered(false)}
           >
-            <img
+            <Image
               src={
-                isRightHovered ? "panneau_positif_hover.png" : "panneau_positif.png"
+                isRightHovered
+                  ? "/panneau_positif_hover.png"
+                  : "/panneau_positif.png"
               }
               alt="Panneau droite"
-              className="w-80 h-auto hover:scale-110 transition"
+              width={320} // w-80 en Tailwind = 80 * 4 px
+              height={0}
+              className="h-auto hover:scale-110 transition"
             />
           </button>
         </motion.div>
