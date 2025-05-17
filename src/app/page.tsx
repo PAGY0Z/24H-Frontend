@@ -99,7 +99,7 @@ export default function Home() {
                       className="text-lg mb-8 mt-3 text-black"
                       style={{ fontFamily: "'Faculty Glyphic', serif" }}
                     >
-                      Entrez votre email ou celui d'un ami
+                      Entrez votre email ou celui d&#39;un ami
                     </h3>
 
                     <input
@@ -134,7 +134,7 @@ export default function Home() {
           </AnimatePresence>
 
           {/* Titre et sous-titre */}
-          <div className="absolute top-35 left-1/2 transform -translate-x-1/2 text-center w-[90%] max-w-5xl">
+          <div className="absolute top-[18%] left-1/2 transform -translate-x-1/2 text-center w-[90%] max-w-5xl">
             <h1
               className="text-6xl font-bold drop-shadow-lg text-black"
               style={{ fontFamily: "Limelight, cursive" }}
@@ -164,21 +164,21 @@ export default function Home() {
               alt="Panneau gauche"
               width={320} // équivalent à w-80 (80 * 4 px)
               height={0} // facultatif si tu utilises `style` ou `className` pour auto height
-              className="h-auto hover:scale-110 transition"
+              className="h-auto transition"
             />
           </button>
 
           {/* Porte centrale */}
           <button
             onClick={() => setShowModal(true)}
-            className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-transparent border-none outline-none"
+            className="absolute bottom-38 left-1/2 transform -translate-x-1/2 bg-transparent border-none outline-none"
           >
             <Image
               src="/porte.png"
               alt="Porte centrale"
-              width={300} // ajuste selon ta maquette
+              width={150} // ajuste selon ta maquette
               height={0} // garde la hauteur automatique
-              className="h-auto hover:scale-110 transition"
+              className="h-auto transition"
             />
           </button>
 
@@ -197,7 +197,7 @@ export default function Home() {
               alt="Panneau droite"
               width={320} // w-80 en Tailwind = 80 * 4 px
               height={0}
-              className="h-auto hover:scale-110 transition"
+              className="h-auto transition"
             />
           </button>
         </motion.div>
