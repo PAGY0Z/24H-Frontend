@@ -133,7 +133,7 @@ export default function Home() {
           </AnimatePresence>
 
           {/* Titre et sous-titre */}
-          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 text-center w-[90%] max-w-5xl">
+          <div className="absolute top-35 left-1/2 transform -translate-x-1/2 text-center w-[90%] max-w-5xl">
             <h1
               className="text-6xl font-bold drop-shadow-lg text-black"
               style={{ fontFamily: "Limelight, cursive" }}
@@ -141,8 +141,8 @@ export default function Home() {
               The End Page Museum
             </h1>
             <p
-              className="text-lg mt-5 drop-shadow-md text-black"
-              style={{ fontFamily: "Limelight, cursive" }}
+              className="text-xl mt-5 drop-shadow-md text-black"
+              style={{ fontFamily: "'Faculty Glyphic', serif" }}
             >
               AN ADVENTURE DOWN MEMORY LANE
             </p>
