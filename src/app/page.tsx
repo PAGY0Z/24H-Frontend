@@ -30,6 +30,7 @@ export default function Home() {
   const [isRightHovered, setIsRightHovered] = useState(false);
   const [isLeftHovered, setIsLeftHovered] = useState(false);
   const [isPorteHovered, setIsPorteHovered] = useState(false);
+  const [isTapisHovered, setIsTapisHovered] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
   const [sceneStyle, setSceneStyle] = useState<CSSProperties>(initialSceneStyle);
@@ -101,6 +102,15 @@ export default function Home() {
         router.push(`/artefacts?email=${encodeURIComponent(email.trim())}`);
       }, 600);
     }
+  };
+
+  const goPodium = () => {
+      setError("");
+      setShowModal(false);
+      setIsLeaving(true);
+      setTimeout(() => {
+        router.push(`/podium`);
+      }, 600);
   };
 
   const panelImageRatioWidth = 320;
@@ -365,6 +375,34 @@ export default function Home() {
                 className="transition"
               />
             </div>
+
+            
+
+            <div
+              style={{
+                position: 'absolute',
+                bottom: `${pxToPercentHeight(40)}%`, 
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: `${pxToPercentWidth(270)}%`,
+              }}
+              className="bg-transparent border-none outline-none cursor-pointer"
+              onMouseEnter={() => setIsTapisHovered(true)}
+              onMouseLeave={() => setIsTapisHovered(false)}
+              onClick={goPodium}
+              role="button"
+              tabIndex={0}
+            >
+              <Image
+                src={isTapisHovered ? "/tapis_podium_hover.png" : "/tapis_podium.png"}
+                alt="Porte centrale"
+                layout="responsive"
+                width={doorImageRatioWidth}
+                height={doorImageRatioHeight}
+                className="transition"
+              />
+            </div>
+
           </motion.div>
         </>
       </AnimatePresence>
