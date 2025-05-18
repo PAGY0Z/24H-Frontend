@@ -40,6 +40,7 @@ export default function ArtefactShowClient() {
 
   const [sceneStyle, setSceneStyle] = useState<CSSProperties>(initialSceneStyle);
   const [currentSceneWidth, setCurrentSceneWidth] = useState<number>(DESIGN_WIDTH);
+  
 
   useEffect(() => {
     const handleResize = () => {
@@ -95,7 +96,7 @@ export default function ArtefactShowClient() {
   const handleReturn = () => {
     setIsLeaving(true);
     setTimeout(() => {
-      router.push("/"); 
+      router.back();
     }, 600);
   };
 
@@ -199,7 +200,7 @@ export default function ArtefactShowClient() {
                   paddingBottom: dynamicSize(buttonPaddingY),
                 }}
               >
-                RETOUR À L&apos;ACCUEIL
+                BACK
               </button>
             </div>
           </motion.div>

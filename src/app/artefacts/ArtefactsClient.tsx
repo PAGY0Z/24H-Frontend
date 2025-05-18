@@ -3,12 +3,14 @@
 import React, { useState, useEffect, CSSProperties } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
 
 // Définissez votre résolution de design de référence ici.
 const DESIGN_WIDTH = 1920;
 const DESIGN_HEIGHT = 1080; // 16:9 ratio
 
 // Fonctions utilitaires
+// Pas de changement ici
 const pxToPercentWidth = (px: number): number => (px / DESIGN_WIDTH) * 100;
 const pxToPercentHeight = (px: number): number => (px / DESIGN_HEIGHT) * 100;
 const scaleToWidth = (originalPx: number, currentSceneWidth: number): number => {
@@ -17,16 +19,15 @@ const scaleToWidth = (originalPx: number, currentSceneWidth: number): number => 
 
 // État initial du style de la scène
 const initialSceneStyle: CSSProperties = {
-  width: `${DESIGN_WIDTH}px`,
-  height: `${DESIGN_HEIGHT}px`,
+  // width et height seront définis dynamiquement par useEffect
   position: "relative",
   overflow: "hidden",
-  backgroundImage: "url('/background_main.png')",
+  backgroundImage: "url('/background_positif.png')", // Assurez-vous que ce chemin est correct
   backgroundSize: "cover",
   backgroundPosition: "center",
   display: "flex",
   flexDirection: "column",
-  justifyContent: "space-between",
+  justifyContent: "space-between", // Pour espacer titre, grille, et bouton retour
 };
 
 export default function ArtefactsClient() {
@@ -35,10 +36,13 @@ export default function ArtefactsClient() {
   const router = useRouter();
 
   const [isLeaving, setIsLeaving] = useState(false);
-  const items = Array.from({ length: 10 }, (_, i) => i + 1); 
+  const items = Array.from({ length: 4 }, (_, i) => i + 1);
 
   const [sceneStyle, setSceneStyle] = useState<CSSProperties>(initialSceneStyle);
   const [currentSceneWidth, setCurrentSceneWidth] = useState<number>(DESIGN_WIDTH);
+  const [isRightHovered, setIsRightHovered] = useState(false);
+
+  
 
   useEffect(() => {
     const handleResize = () => {
@@ -48,13 +52,15 @@ export default function ArtefactsClient() {
       const windowRatio = newWidth / newHeight;
 
       if (windowRatio > aspectRatio) {
+        // La fenêtre est plus large que le design, la hauteur est limitante
         newHeight = window.innerHeight;
         newWidth = newHeight * aspectRatio;
       } else {
+        // La fenêtre est plus haute (ou égale) que le design, la largeur est limitante
         newWidth = window.innerWidth;
         newHeight = newWidth / aspectRatio;
       }
-      
+
       setCurrentSceneWidth(newWidth);
 
       const newStyles: CSSProperties = {
@@ -65,152 +71,226 @@ export default function ArtefactsClient() {
       setSceneStyle(newStyles);
     };
 
-    handleResize();
+    handleResize(); // Appel initial pour définir la taille
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, []); // Dépendance vide pour exécuter à l' montaje et nettoyage au démontage
 
+  // Fonction pour calculer la taille de police dynamique
   const dynamicFontSize = (originalPxSize: number): string => {
     return `${scaleToWidth(originalPxSize, currentSceneWidth)}px`;
   };
 
+  // Fonction pour calculer les dimensions dynamiques
   const dynamicSize = (originalPxSize: number): string => {
     return `${scaleToWidth(originalPxSize, currentSceneWidth)}px`;
   };
 
+  // Gestion du clic sur le bouton Retour
   const handleReturn = () => {
     setIsLeaving(true);
     setTimeout(() => {
       router.push("/");
+    }, 600); // Durée de l'animation de sortie
+  };
+
+  // Gestion du clic sur un artefact
+  const handleItemClick = (itemId: number) => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      router.push(`/artefact_show?id=${itemId}`);
+    }, 600); // Durée de l'animation de sortie
+  };
+
+  // Action pour le nouveau bouton "+" global
+  const handleGlobalAddClick = () => {
+    console.log("Bouton + Global cliqué");
+    // Implémentez votre logique ici, par ex:
+    // router.push('/nouveau-artefact');
+    // Pour l'exemple, nous allons simuler une navigation après une animation
+    setIsLeaving(true);
+    setTimeout(() => {
+      router.push('/artefact_add'); // Décommentez et ajustez la route
+      //console.log("Navigation vers la page de création d'artefact (simulée)");
+      //setIsLeaving(false); // Réinitialiser si ce n'est pas une navigation réelle
     }, 600);
   };
 
-  // Nouvelle fonction pour gérer le clic sur un item
-  const handleItemClick = (itemId: number) => {
-    setIsLeaving(true); // Déclenche l'animation de sortie
-    setTimeout(() => {
-      // Vous pouvez passer l'ID de l'item en query param si nécessaire
-      router.push(`/artefact_show?id=${itemId}`);
-      // Si vous ne voulez pas passer d'ID pour l'instant:
-      // router.push("/artefact_show");
-    }, 600); // Doit correspondre à la durée de la transition de sortie
-  };
+  // Valeurs de design originales pour les éléments de la scène
+  const titleMarginTop = 185;
+  // const emailMarginTop = -10; // Conservé au cas où, mais non utilisé dans le code actuel
+  const gridGap = 80;
+  const itemOriginalWidthPx = 280;
+  const itemOriginalHeightPx = (itemOriginalWidthPx / 67) * 92; // Maintien du ratio de l'item
 
-  // Valeurs de design originales
-  const titleMarginTop = 185; 
-  const emailMarginTop = -10; 
-  // const gridMarginVertical = 40; // Commenté car géré par space-between
-  const gridGap = 80; 
-  const itemSize = 160; 
-  const buttonPaddingX = 24; 
-  const buttonPaddingY = 8;  
-  const buttonMarginBottom = 80; 
+  const buttonPaddingX = 24;
+  const buttonPaddingY = 8;
+  const buttonMarginBottom = 90;
+
+  // Dimensions pour le nouveau bouton "+" (valeurs de design originales)
+  const globalPlusButtonSize = 150; // Diamètre du bouton
+  const globalPlusIconSize = 120;   // Taille du symbole "+"
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black">
-      <AnimatePresence mode="wait">
-        <>
-          {isLeaving && (
+    // Conteneur principal qui remplit la fenêtre, fond noir.
+    // Il sert de contexte de positionnement pour le bouton "+" absolu
+    // et de conteneur flex pour centrer la scène.
+    <div className="fixed inset-0 bg-black flex justify-center items-center">
+      {/* Conteneur pour la scène principale et son animation */}
+      {/* Ce div interne assure que la scène est bien centrée par le parent flex */}
+      <div className="relative"> {/* Ajouté pour que z-index de l'overlay fonctionne correctement par rapport au bouton + */}
+        <AnimatePresence mode="wait">
+          <>
+            {isLeaving && (
+              <motion.div
+                className="fixed inset-0 bg-black z-[999]" // z-index élevé pour couvrir toute la page
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.6 }}
+              />
+            )}
+
+            {/* Scène principale avec contenu et animations */}
             <motion.div
-              className="fixed inset-0 bg-black z-[999]"
+              key="artefacts-page-content"
+              style={sceneStyle} // Applique le style dynamique (width, height, background, etc.)
+              className="flex flex-col justify-between" // Assure la disposition interne (titre en haut, grille au milieu, bouton en bas)
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.6 }}
-            />
-          )}
-
-          <motion.div
-            key="artefacts-page-content"
-            style={sceneStyle}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            {/* Section Titre */}
-            <div className="text-center">
+            >
+              {/* Section Titre */}
               <div
-                className="text-black font-bold"
-                style={{ 
-                  fontFamily: "Limelight, cursive",
-                  fontSize: dynamicFontSize(60),
+                className="flex flex-row items-baseline justify-center text-center mr-50"
+                style={{
                   marginTop: dynamicSize(titleMarginTop),
                 }}
               >
-                ARTEFACTS
+                <div
+                  className="text-black font-bold" // Couleur de texte à ajuster si le fond est sombre
+                  style={{
+                    fontFamily: "Limelight, cursive",
+                    fontSize: dynamicFontSize(50),
+                    marginRight: dynamicSize(20),
+                  }}
+                >
+                  ARTIFACTS :
+                </div>
+                <div
+                  className="text-black font-bold" // Couleur de texte à ajuster
+                  style={{
+                    fontFamily: "'Faculty Glyphic', serif",
+                    fontSize: dynamicFontSize(55),
+                  }}
+                >
+                  {email}
+                </div>
               </div>
+
+              {/* Section Grille d'artefacts */}
+              <div className="flex justify-center mr-50 mb-33" > {/* Centre la grille horizontalement */}
+                <div
+                  className="grid grid-cols-4" // Maintenir 4 colonnes
+                  style={{
+                    gap: dynamicSize(gridGap), // Espace dynamique entre les items
+                  }}
+                >
+                  {items.map((item) => (
+                    <div
+                      key={item}
+                      className="bg-white/50 rounded-xl shadow-lg hover:scale-105 transition cursor-pointer"
+                      style={{
+                        width: dynamicSize(itemOriginalWidthPx),
+                        height: dynamicSize(itemOriginalHeightPx),
+                      }}
+                      onClick={() => handleItemClick(item)}
+                      role="button"
+                      tabIndex={0} // Pour l'accessibilité au clavier
+                      onKeyDown={(e) => { // Gestion de l'activation par Entrée/Espace
+                        if (e.key === "Enter" || e.key === " ") {
+                          handleItemClick(item);
+                        }
+                      }}
+                    >
+                      {/* Contenu de l'item (peut être une image, du texte, etc.) */}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section Bouton Retour */}
               <div
-                className="text-black font-bold"
+                className="text-center"
                 style={{
-                  fontFamily: "'Faculty Glyphic', serif", // Assurez-vous que cette police est chargée globalement
-                  fontSize: dynamicFontSize(48),
-                  marginTop: dynamicSize(emailMarginTop),
+                  marginBottom: dynamicSize(buttonMarginBottom),
                 }}
               >
-                {email}
+                <button
+                  onClick={handleReturn}
+                  className="bg-[#8B4513] hover:bg-[#5C3210] font-bold text-white rounded-full transition mr-50"
+                  style={{
+                    fontFamily: "'Faculty Glyphic', serif",
+                    fontSize: dynamicFontSize(25),
+                    paddingLeft: dynamicSize(buttonPaddingX),
+                    paddingRight: dynamicSize(buttonPaddingX),
+                    paddingTop: dynamicSize(buttonPaddingY),
+                    paddingBottom: dynamicSize(buttonPaddingY),
+                  }}
+                >
+                  BACK TO HOME
+                </button>
               </div>
-            </div>
+            </motion.div>
+          </>
+        </AnimatePresence>
+      </div>
 
-            {/* Section Grille d'artefacts */}
-            <div 
-              className="flex justify-center"
-            >
-              <div 
-                className="grid grid-cols-5"
-                style={{
-                  gap: dynamicSize(gridGap),
-                }}
-              >
-                {items.map((item) => (
-                  <div
-                    key={item}
-                    className="bg-white/50 rounded-xl shadow-lg hover:scale-105 transition cursor-pointer" // Ajout de cursor-pointer
-                    style={{
-                      width: dynamicSize(itemSize),
-                      height: dynamicSize(itemSize),
-                    }}
-                    onClick={() => handleItemClick(item)} // Ajout du gestionnaire de clic
-                    role="button" // Pour l'accessibilité
-                    tabIndex={0} // Pour rendre le div focusable
-                    onKeyDown={(e) => { // Pour l'accessibilité au clavier (Enter/Space)
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        handleItemClick(item);
-                      }
-                    }}
-                  >
-                    {/* Vous pouvez mettre du contenu à l'intérieur de l'item ici si besoin */}
-                    {/* Par exemple: <span className="text-black">{item}</span> */}
-                  </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Section Bouton Retour */}
-            <div 
-              className="text-center"
+      {/* NOUVEAU: Bouton "+" Global - Positionné par rapport à la fenêtre */}
+      <button
+        onClick={handleGlobalAddClick}
+        aria-label="Ajouter un artefact"
+        className="absolute top-1/2 -translate-y-1/2 right-4 sm:right-8 z-50
+                   bg-white text-black rounded-full shadow-xl hover:bg-gray-200 mr-20
+                   focus:outline-none focus:ring-2 focus:ring-gray-300
+                   flex items-center justify-center transition-transform hover:scale-110"
+        style={{
+          width: dynamicSize(globalPlusButtonSize),   // Taille dynamique
+          height: dynamicSize(globalPlusButtonSize),  // Taille dynamique
+          fontSize: dynamicFontSize(globalPlusIconSize), // Taille de l'icône dynamique
+          lineHeight: '1', // Aide au centrage vertical du '+'
+        }}
+      >
+        +
+      </button>
+
+
+<div
               style={{
-                marginBottom: dynamicSize(buttonMarginBottom),
+                position: 'absolute',
+                bottom: `${pxToPercentHeight(100)}%`,
+                right: `${pxToPercentWidth(DESIGN_WIDTH * 0.13)}%`,
+                width: `${pxToPercentWidth(350)}%`,
               }}
+              className="bg-transparent border-none outline-none cursor-pointer"
+              onMouseEnter={() => setIsRightHovered(true)}
+              onMouseLeave={() => setIsRightHovered(false)}
+              role="button"
+              tabIndex={0}
+              onClick={() => { /* Action pour panneau droit si nécessaire */ }}
             >
-              <button
-                onClick={handleReturn}
-                className="bg-[#8B4513] hover:bg-[#5C3210] font-bold text-white rounded-full transition"
-                style={{
-                  fontFamily: "'Faculty Glyphic', serif", // Assurez-vous que cette police est chargée globalement
-                  fontSize: dynamicFontSize(25), 
-                  paddingLeft: dynamicSize(buttonPaddingX),
-                  paddingRight: dynamicSize(buttonPaddingX),
-                  paddingTop: dynamicSize(buttonPaddingY),
-                  paddingBottom: dynamicSize(buttonPaddingY),
-                }}
-              >
-                RETOUR À L&apos;ACCUEIL
-              </button>
+              <Image
+                src={isRightHovered ? "/panneau_suivant_hover.png" : "/panneau_suivant.png"}
+                alt="Panneau droite"
+                layout="responsive"
+                width={0}
+                height={0}
+                className="transition"
+              />
             </div>
-          </motion.div>
-        </>
-      </AnimatePresence>
+
     </div>
   );
 }

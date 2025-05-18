@@ -29,6 +29,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [isRightHovered, setIsRightHovered] = useState(false);
   const [isLeftHovered, setIsLeftHovered] = useState(false);
+  const [isPorteHovered, setIsPorteHovered] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
   const [sceneStyle, setSceneStyle] = useState<CSSProperties>(initialSceneStyle);
@@ -198,7 +199,7 @@ export default function Home() {
                           marginBottom: `${pxToPercentHeight(0)}%`,
                         }}
                       >
-                        RECHERCHER / AJOUTER UTILISATEUR
+                        SEARCH OR ADD USER
                       </h2>
                       <h3
                         className="text-black" // Texte en noir
@@ -209,7 +210,7 @@ export default function Home() {
                           marginBottom: `${pxToPercentHeight(60)}%`,
                         }}
                       >
-                        Entrez votre email ou celui d&#39;un ami
+                        Enter friend's e-mail or yours
                       </h3>
 
                       <input
@@ -253,7 +254,7 @@ export default function Home() {
                           marginTop: `${pxToPercentHeight(45)}%`,
                         }}
                       >
-                        OUVRIR LA PORTE
+                        OPEN THE DOOR
                       </button>
                     </div>
                   </motion.div>
@@ -319,18 +320,20 @@ export default function Home() {
             <div
               style={{
                 position: 'absolute',
-                bottom: `${pxToPercentHeight(199)}%`, 
+                bottom: `${pxToPercentHeight(185)}%`, 
                 left: "50%",
                 transform: "translateX(-50%)",
                 width: `${pxToPercentWidth(420)}%`,
               }}
               className="bg-transparent border-none outline-none cursor-pointer"
+              onMouseEnter={() => setIsPorteHovered(true)}
+              onMouseLeave={() => setIsPorteHovered(false)}
               onClick={() => setShowModal(true)}
               role="button"
               tabIndex={0}
             >
               <Image
-                src="/porte.png"
+                src={isPorteHovered ? "/porte_hover.png" : "/porte.png"}
                 alt="Porte centrale"
                 layout="responsive"
                 width={doorImageRatioWidth}
