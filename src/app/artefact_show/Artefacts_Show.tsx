@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, CSSProperties } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 
 // Définissez votre résolution de design de référence ici.
@@ -9,8 +9,6 @@ const DESIGN_WIDTH = 1920;
 const DESIGN_HEIGHT = 1080; // 16:9 ratio
 
 // Fonctions utilitaires
-const pxToPercentWidth = (px: number): number => (px / DESIGN_WIDTH) * 100;
-const pxToPercentHeight = (px: number): number => (px / DESIGN_HEIGHT) * 100;
 const scaleToWidth = (originalPx: number, currentSceneWidth: number): number => {
   return (originalPx / DESIGN_WIDTH) * currentSceneWidth;
 };
@@ -32,7 +30,6 @@ const initialSceneStyle: CSSProperties = {
 
 
 export default function ArtefactShowClient() {
-  const searchParams = useSearchParams();
   const router = useRouter();
   // const artefactId = searchParams.get("id"); 
 

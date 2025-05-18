@@ -210,7 +210,7 @@ export default function Home() {
                           marginBottom: `${pxToPercentHeight(60)}%`,
                         }}
                       >
-                        Enter friend's e-mail or yours
+                        Enter friends e-mail or yours
                       </h3>
 
                       <input
