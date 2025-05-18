@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, CSSProperties } from "react";
-import { useRouter } // No useSearchParams needed for this form page directly
-from "next/navigation";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 
 // Design reference resolution (16:9 ratio)
 const DESIGN_WIDTH = 1920;
 const DESIGN_HEIGHT = 1080;
+
+// Backend URL
+const BACKEND_API_URL = "https://backend.qwerteam.lareunion.webcup.hodi.host/api";
 
 // Utility functions for responsive scaling
 const scaleToWidth = (originalPx: number, currentSceneWidth: number): number => {
@@ -15,7 +17,6 @@ const scaleToWidth = (originalPx: number, currentSceneWidth: number): number => 
 };
 
 // Initial scene style (background, layout)
-// Padding will be applied dynamically
 const initialSceneStyleBase: Omit<CSSProperties, 'width' | 'height' | 'padding' | 'paddingTop' | 'paddingBottom' | 'paddingLeft' | 'paddingRight'> = {
   position: "relative",
   overflow: "hidden",
@@ -24,7 +25,7 @@ const initialSceneStyleBase: Omit<CSSProperties, 'width' | 'height' | 'padding' 
   backgroundPosition: "center",
   display: "flex",
   flexDirection: "column",
-  justifyContent: "space-between", // Key for layout: title, form, buttons
+  justifyContent: "space-between", 
 };
 
 
@@ -35,13 +36,17 @@ export default function ArtefactAddClient() {
   const [isLeaving, setIsLeaving] = useState(false);
   const [sceneStyle, setSceneStyle] = useState<CSSProperties>({});
   const [currentSceneWidth, setCurrentSceneWidth] = useState<number>(DESIGN_WIDTH);
+  const [isSubmitting, setIsSubmitting] = useState(false); // For loading state during submission
 
   // Form State
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [mediaType, setMediaType] = useState<'photo' | 'video' | 'audio' | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [userEmail, setUserEmail] = useState(""); // New state for user email
+  const [sentimentType, setSentimentType] = useState<'positive' | 'negative' | null>(null); // New state for sentiment
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
 
   // Effect for handling window resize and maintaining aspect ratio
@@ -61,7 +66,7 @@ export default function ArtefactAddClient() {
       }
 
       setCurrentSceneWidth(newWidth);
-      const newPaddingValue = scaleToWidth(40, newWidth); // Original padding reference was 40px
+      const newPaddingValue = scaleToWidth(40, newWidth); 
 
       const newStyles: CSSProperties = {
         ...initialSceneStyleBase,
@@ -75,7 +80,7 @@ export default function ArtefactAddClient() {
       setSceneStyle(newStyles);
     };
 
-    handleResize(); // Initial call
+    handleResize(); 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -93,41 +98,91 @@ export default function ArtefactAddClient() {
   const handleReturn = () => {
     setIsLeaving(true);
     setTimeout(() => {
-      router.back(); // Go to the previous page
-    }, 600); // Match animation duration
+      router.back(); 
+    }, 600); 
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       setFile(event.target.files[0]);
-      setFormError(null); // Clear error on new file selection
+      setFormError(null); 
+      setSuccessMessage(null);
     }
   };
 
   const handleMediaTypeChange = (type: 'photo' | 'video' | 'audio') => {
     setMediaType(type);
-    setFile(null); // Reset file when media type changes
-    setFormError(null); // Clear error
+    setFile(null); 
+    setFormError(null);
+    setSuccessMessage(null);
+  };
+
+  const handleSentimentTypeChange = (type: 'positive' | 'negative') => {
+    setSentimentType(type);
+    setFormError(null);
+    setSuccessMessage(null);
   };
   
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setFormError(null);
+    setSuccessMessage(null);
 
-    if (!title.trim() || !description.trim() || !mediaType || !file) {
-      setFormError("Please fill in all fields and select a file.");
+    if (!title.trim() || !description.trim() || !mediaType || !file || !userEmail.trim() || !sentimentType) {
+      setFormError("Please fill in all fields, select a file, and choose a sentiment.");
       return;
     }
 
-    console.log("Form Submitted:", { title, description, mediaType, fileName: file.name, fileType: file.type, fileSize: file.size });
-    // TODO: Implement actual file upload and data submission logic here
+    setIsSubmitting(true);
 
-    setIsLeaving(true);
-    setTimeout(() => {
-      // router.push('/artefacts'); // Or a success page
-      console.log("Artefact soumis (simulation) et retour à la page précédente.");
-      router.back(); 
-    }, 600);
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('author', userEmail); // 'author' from userEmail field
+    formData.append('artyfactType', mediaType.toUpperCase()); // Convert to uppercase for backend
+    formData.append('description', description);
+    formData.append('isPositive', (sentimentType === 'positive').toString());
+    formData.append('isNegative', (sentimentType === 'negative').toString());
+    formData.append('file', file);
+    // 'emoji' and 'votecount' are not collected, backend should handle defaults or optionality
+
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/artifacts/`, {
+        method: 'POST',
+        body: formData,
+        // Headers are not typically needed for FormData with fetch, 
+        // the browser sets 'Content-Type': 'multipart/form-data' automatically.
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ description: "Unknown API error" }));
+        throw new Error(errorData.description || `API Error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Artifact created successfully:", result);
+      setSuccessMessage("Artifact submitted successfully!");
+      
+      // Reset form or navigate
+      setTitle("");
+      setDescription("");
+      setMediaType(null);
+      setFile(null);
+      setUserEmail("");
+      setSentimentType(null);
+
+      setTimeout(() => {
+        setIsLeaving(true);
+        setTimeout(() => {
+          router.back(); 
+        }, 600);
+      }, 1500); // Show success message for a bit
+
+    } catch (error) {
+      console.error("Form Submission Error:", error);
+      setFormError(error instanceof Error ? error.message : "An unexpected error occurred.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Helper to get accept attribute for file input
@@ -143,19 +198,18 @@ export default function ArtefactAddClient() {
   const labelFontSize = 22;
   const inputFontSize = 20;
   const radioLabelFontSize = 18;
-  const formElementsGap = 15; // Gap between form groups
+  const formElementsGap = 15; 
   const buttonFontSize = 25;
   const buttonPaddingX = 24;
   const buttonPaddingY = 8;
 
-  // Common styles for inputs and textarea
   const inputBaseStyle: CSSProperties = {
     width: '100%',
     padding: dynamicSize(12),
     borderRadius: dynamicSize(8),
     border: `1px solid ${dynamicSize(1)} rgba(255, 255, 255, 0.4)`,
-    backgroundColor: "rgba(0, 0, 0, 0.3)", // Darker semi-transparent background
-    color: "white", // White text for dark background
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    color: "white",
     fontSize: dynamicFontSize(inputFontSize),
     fontFamily: "'Faculty Glyphic', serif",
     marginTop: dynamicSize(8),
@@ -163,7 +217,7 @@ export default function ArtefactAddClient() {
   };
   
   const activeRadioStyle: CSSProperties = {
-    backgroundColor: "rgba(139, 69, 19, 0.8)", // #8B4513 with opacity
+    backgroundColor: "rgba(139, 69, 19, 0.8)", 
     color: "white",
     border: `2px solid white`,
   };
@@ -190,100 +244,143 @@ export default function ArtefactAddClient() {
 
         <motion.div
           key="artefact-add-page-content"
-          style={sceneStyle} // Applies dynamic width, height, padding, and background
+          style={sceneStyle}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-black flex flex-col" // justify-between is in sceneStyle
+          className="text-black flex flex-col"
         >
-          {/* 1. Page Title */}
           <h1
             style={{
               fontSize: dynamicFontSize(pageTitleFontSize),
               fontFamily: "'Limelight', cursive",
               textAlign: 'center',
-              color: "black", // Ensure title is visible
-              paddingTop: dynamicSize(135), // Add some top padding if needed inside the scene padding
+              color: "black", 
+              paddingTop: dynamicSize(20), // Adjusted padding
+              paddingBottom: dynamicSize(20), // Added padding below title
             }}
           >
-            Add a New Artifact
+            Add New Artifact
           </h1>
 
-          {/* 2. Form Area */}
           <form
             id="addArtefactForm"
             onSubmit={handleSubmit}
-            className="flex flex-col items-center overflow-y-auto" // Centered items, vertical scroll
+            className="flex flex-col items-center overflow-y-auto"
             style={{
               gap: dynamicSize(formElementsGap),
-              flexGrow: 1, // Takes available vertical space
-              width: '100%', // Takes full width within scene padding
-              paddingTop: dynamicSize(30),
-              paddingLeft: dynamicSize(30), // Inner padding for form content
-              paddingRight: dynamicSize(30),
+              flexGrow: 1, 
+              width: '100%', 
+              maxWidth: dynamicSize(DESIGN_WIDTH), // Limit form width for better readability
+              paddingLeft: dynamicSize(20), 
+              paddingRight: dynamicSize(20),
               boxSizing: 'border-box',
             }}
           >
-                  {/* Title Field - Label à gauche */}
-                  <div className="w-full max-w-xl flex flex-row items-center" style={{ gap: dynamicSize(10) }}> {/* Conteneur flex pour aligner label et input horizontalement */}
+            {/* User Email Field */}
+            <div className="w-full">
+              <label
+                htmlFor="userEmail"
+                style={{ fontSize: dynamicFontSize(labelFontSize), fontFamily: "'Faculty Glyphic', serif", display: 'block', color: "black" }}
+              >
+                User Email:
+              </label>
+              <input
+                type="email"
+                id="userEmail"
+                value={userEmail}
+                onChange={(e) => { setUserEmail(e.target.value); setFormError(null); setSuccessMessage(null);}}
+                required
+                style={{...inputBaseStyle, color: "black", backgroundColor: "rgba(255, 255, 255, 0.7)"}} // Lighter background for better contrast
+                placeholder="Enter your email..."
+              />
+            </div>
+            
+            {/* Title Field */}
+            <div className="w-full">
               <label
                 htmlFor="artefactTitle"
-                className="whitespace-nowrap" // Empêche le label de passer à la ligne
-                style={{
-                  fontSize: dynamicFontSize(labelFontSize),
-                  fontFamily: "'Faculty Glyphic', serif",
-                  // display: 'block' n'est plus nécessaire avec flex
-                  // marginRight: dynamicSize(10) // Ajouté via le 'gap' sur le parent
-                }}
+                style={{ fontSize: dynamicFontSize(labelFontSize), fontFamily: "'Faculty Glyphic', serif", display: 'block', color: "black" }}
               >
-                Title :
+                Title:
               </label>
               <input
                 type="text"
                 id="artefactTitle"
                 value={title}
-                onChange={(e) => { setTitle(e.target.value); setFormError(null);}}
+                onChange={(e) => { setTitle(e.target.value); setFormError(null); setSuccessMessage(null);}}
                 required
-                style={{
-                  ...inputBaseStyle, // Conserve le style de base de l'input
-                  flexGrow: 1, // Permet à l'input de prendre l'espace restant
-                  marginTop: 0, // Annule la marge supérieure si inputBaseStyle en avait une spécifique
-                }}
+                style={{...inputBaseStyle, color: "black", backgroundColor: "rgba(255, 255, 255, 0.7)"}}
                 placeholder="Enter the title..."
               />
             </div>
 
             {/* Description Field */}
-            <div className="w-full max-w-xl">
+            <div className="w-full">
               <label
                 htmlFor="artefactDescription"
-                style={{ fontSize: dynamicFontSize(labelFontSize), fontFamily: "'Faculty Glyphic', serif", display: 'block' }}
+                style={{ fontSize: dynamicFontSize(labelFontSize), fontFamily: "'Faculty Glyphic', serif", display: 'block', color: "black" }}
               >
-                Description :
+                Description:
               </label>
               <textarea
                 id="artefactDescription"
                 value={description}
-                onChange={(e) => { setDescription(e.target.value); setFormError(null);}}
+                onChange={(e) => { setDescription(e.target.value); setFormError(null); setSuccessMessage(null);}}
                 required
-                rows={4}
+                rows={3} // Reduced rows
                 style={{
                   ...inputBaseStyle,
-                  height: dynamicSize(150), // Specific height for textarea
+                  height: dynamicSize(120), 
                   resize: 'none',
+                  color: "black", backgroundColor: "rgba(255, 255, 255, 0.7)"
                 }}
                 placeholder="Describe your artifact..."
               />
             </div>
 
-            {/* Media Type Selection */}
-            <div className="w-full max-w-xl ">
+            {/* Sentiment Type Selection */}
+            <div className="w-full">
               <span
-                id="mediaTypeLabel" // For aria-labelledby
-                style={{ fontSize: dynamicFontSize(labelFontSize), fontFamily: "'Faculty Glyphic', serif", display: 'block' }}
+                id="sentimentTypeLabel"
+                style={{ fontSize: dynamicFontSize(labelFontSize), fontFamily: "'Faculty Glyphic', serif", display: 'block', color: "black" }}
               >
-                Média :
+                Sentiment:
+              </span>
+              <div
+                role="radiogroup"
+                aria-labelledby="sentimentTypeLabel"
+                className="flex flex-row justify-start mt-2" // Changed to flex-row and justify-start
+                style={{ gap: dynamicSize(20) }} // Increased gap
+              >
+                {(['positive', 'negative'] as const).map((type) => (
+                  <button
+                    type="button"
+                    key={type}
+                    onClick={() => handleSentimentTypeChange(type)}
+                    className="p-3 rounded-lg transition-all duration-200 ease-in-out text-center"
+                    style={{
+                        fontSize: dynamicFontSize(radioLabelFontSize),
+                        fontFamily: "'Faculty Glyphic', serif",
+                        ...(sentimentType === type ? activeRadioStyle : inactiveRadioStyle),
+                        minWidth: dynamicSize(150), // Adjusted minWidth
+                        padding: `${dynamicSize(10)} ${dynamicSize(20)}`,
+                    }}
+                  >
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Media Type Selection */}
+            <div className="w-full">
+              <span
+                id="mediaTypeLabel"
+                style={{ fontSize: dynamicFontSize(labelFontSize), fontFamily: "'Faculty Glyphic', serif", display: 'block', color: "black" }}
+              >
+                Media Type:
               </span>
               <div
                 role="radiogroup"
@@ -292,8 +389,8 @@ export default function ArtefactAddClient() {
                 style={{ gap: dynamicSize(10) }}
               >
                 {(['photo', 'video', 'audio'] as const).map((type) => (
-                  <button // Using buttons for better styling control of radio-like options
-                    type="button" // Important: prevent form submission
+                  <button
+                    type="button"
                     key={type}
                     onClick={() => handleMediaTypeChange(type)}
                     className="flex-1 p-3 rounded-lg transition-all duration-200 ease-in-out text-center"
@@ -301,7 +398,7 @@ export default function ArtefactAddClient() {
                         fontSize: dynamicFontSize(radioLabelFontSize),
                         fontFamily: "'Faculty Glyphic', serif",
                         ...(mediaType === type ? activeRadioStyle : inactiveRadioStyle),
-                        minWidth: dynamicSize(120), // Ensure buttons have some width
+                        minWidth: dynamicSize(120),
                         padding: `${dynamicSize(10)} ${dynamicSize(15)}`,
                     }}
                   >
@@ -313,7 +410,13 @@ export default function ArtefactAddClient() {
 
             {/* File Upload (Conditional) */}
             {mediaType && (
-              <div className="w-full max-w-xl">
+              <div className="w-full">
+                <label
+                  htmlFor="artefactFile"
+                  style={{ fontSize: dynamicFontSize(labelFontSize), fontFamily: 'Faculty Glyphic, serif', display: 'block', color: 'black', marginBottom: dynamicSize(8) }}
+                >
+                  Upload File:
+                </label>
                 <input
                   type="file"
                   id="artefactFile"
@@ -322,29 +425,35 @@ export default function ArtefactAddClient() {
                   accept={getAcceptAttribute()}
                   style={{
                     ...inputBaseStyle,
-                    padding: dynamicSize(8), // Adjust padding for file input if needed
-                    backgroundColor: "rgba(255,255,255,0.1)", // Slightly different for file input
+                    padding: dynamicSize(8),
+                    backgroundColor: "rgba(255,255,255,0.7)", // Lighter for file input
+                    color: "black", // Text color for file input
                   }}
                 />
-                 {file && <p style={{fontSize: dynamicFontSize(16), marginTop: dynamicSize(5), color: 'rgba(255,255,255,0.8)'}}>Fichier sélectionné: {file.name}</p>}
+                {file && <p style={{ fontSize: dynamicFontSize(16), marginTop: dynamicSize(5), color: 'rgba(0,0,0,0.8)' }}>Selected: {file.name}</p>}
               </div>
             )}
 
-            {/* Form Error Message */}
+            {/* Form Error/Success Message */}
             {formError && (
-                <p style={{ color: '#FF6B6B', fontSize: dynamicFontSize(18), textAlign: 'center', marginTop: dynamicSize(10) }}>
+                <p style={{ color: '#D8000C', backgroundColor: '#FFD2D2', padding: dynamicSize(10), borderRadius: dynamicSize(5), fontSize: dynamicFontSize(18), textAlign: 'center', marginTop: dynamicSize(10), width: '100%' }}>
                     {formError}
+                </p>
+            )}
+            {successMessage && (
+                <p style={{ color: '#4F8A10', backgroundColor: '#DFF2BF', padding: dynamicSize(10), borderRadius: dynamicSize(5), fontSize: dynamicFontSize(18), textAlign: 'center', marginTop: dynamicSize(10), width: '100%' }}>
+                    {successMessage}
                 </p>
             )}
           </form>
 
-          {/* 3. Action Buttons */}
+          {/* Action Buttons */}
           <div
             className="flex flex-col sm:flex-row justify-center items-center"
             style={{
               gap: dynamicSize(70),
-              paddingBottom: dynamicSize(50), // Ensure buttons are not at the very edge
-              paddingTop: dynamicSize(10), // Space above buttons
+              paddingBottom: dynamicSize(30), // Adjusted padding
+              paddingTop: dynamicSize(20), 
             }}
           >
             <button
@@ -354,27 +463,28 @@ export default function ArtefactAddClient() {
                 fontFamily: "'Faculty Glyphic', serif",
                 fontSize: dynamicFontSize(buttonFontSize),
                 padding: `${dynamicSize(buttonPaddingY)} ${dynamicSize(buttonPaddingX)}`,
-                backgroundColor: "#8B4513", // Original brown for return
-                minWidth: dynamicSize(300),
+                backgroundColor: "#8B4513", 
+                minWidth: dynamicSize(250), // Adjusted minWidth
               }}
             >
               BACK
             </button>
             <button
               type="submit"
-              form="addArtefactForm" // Links to the form
+              form="addArtefactForm"
+              disabled={isSubmitting} // Disable button while submitting
               className="font-bold text-white rounded-full transition hover:opacity-80"
               style={{
                 fontFamily: "'Faculty Glyphic', serif",
                 fontSize: dynamicFontSize(buttonFontSize),
                 padding: `${dynamicSize(buttonPaddingY)} ${dynamicSize(buttonPaddingX)}`,
-                backgroundColor: "#4CAF50", // Green for submit/validate
-                minWidth: dynamicSize(300),
+                backgroundColor: isSubmitting ? "#cccccc" : "#4CAF50", 
+                minWidth: dynamicSize(250), // Adjusted minWidth
+                cursor: isSubmitting ? "not-allowed" : "pointer",
               }}
             >
-              SUBMIT
+              {isSubmitting ? "SUBMITTING..." : "SUBMIT"}
             </button>
-            
           </div>
         </motion.div>
       </AnimatePresence>

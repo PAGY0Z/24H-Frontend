@@ -5,28 +5,58 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 
-// AJOUTÉ: Importation des composants d'artefacts
-// Ajustez ces chemins si vos composants sont dans un autre dossier.
+// Importation des composants d'artefacts
+// Assurez-vous que ces chemins sont corrects pour votre structure de projet.
 import VideoArtefact from '@/app/components/Artefacts/VideoArtefact';
 import PhotoArtefact from '@/app/components/Artefacts/PhotoArtefact';
 import MusicArtefact from '@/app/components/Artefacts/MusicArtefact';
 
-// AJOUTÉ: Types pour les données des artefacts
+// Types pour les données des artefacts
 type ArtefactType = 'video' | 'photo' | 'audio';
 
+// Interface pour un item artefact tel que retourné par l'API (dans la liste 'items')
+interface ApiPodiumArtefactItem {
+  id: string | number;
+  votecount: number; // Important pour le classement
+  author: string;
+  title: string;
+  description: string; 
+  isNegative: boolean;
+  isPositive: boolean;
+  emoji: string;
+  artyfactType: string; // Vient de l'API en MAJUSCULES (ex: "VIDEO")
+  filepath: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Interface pour la réponse complète de l'API /leaderboard
+interface ApiLeaderboardResponse {
+  items: ApiPodiumArtefactItem[];
+  total: number;
+  page: number;
+  per_page: number;
+  pages: number;
+  // ... autres champs de pagination si besoin
+}
+
+// Interface pour les données transformées utilisées par le frontend pour le podium
 interface PodiumArtefactData {
   id: string | number;
   type: ArtefactType;
   title?: string;
-  thumbnailUrl?: string; // Pour Vidéo
-  photoUrl?: string;    // Pour Photo
-  musicImageUrl?: string; // Pour Audio
-  // Les informations de position et de taille sont maintenant codées en dur dans le JSX
+  thumbnailUrl?: string;
+  photoUrl?: string;
+  musicImageUrl?: string;
 }
 
 // Définissez votre résolution de design de référence ici.
 const DESIGN_WIDTH = 1920;
 const DESIGN_HEIGHT = 1080; // 16:9 ratio
+
+// URL de base de votre backend
+const BACKEND_BASE_URL = "https://backend.qwerteam.lareunion.webcup.hodi.host";
+
 
 // Fonctions utilitaires
 const scaleToWidth = (originalPx: number, currentSceneWidth: number): number => {
@@ -45,39 +75,19 @@ const initialSceneStyle: CSSProperties = {
   alignItems: "center",
 };
 
-// Données simulées pour les 3 artefacts du podium
-// Ces données ne contiennent PLUS la position ni la taille.
-const topArtefactsDataExample: PodiumArtefactData[] = [
-  { // Données pour la 1ère place
-    id: 'podium_artefact_1_data',
-    type: 'video',
-    title: 'Chef d\'œuvre Vidéo',
-    thumbnailUrl: '/placeholder_video_thumb.jpg',
-  },
-  { // Données pour la 2ème place
-    id: 'podium_artefact_2_data',
-    type: 'photo',
-    title: 'Photographie Épique',
-    photoUrl: '/placeholder_photo.jpg',
-  },
-  { // Données pour la 3ème place
-    id: 'podium_artefact_3_data',
-    type: 'audio',
-    title: 'Son Mémorable',
-    musicImageUrl: '/musique.png',
-  },
-];
 
-
-export default function PodiumClient() { // Le nom du fichier est ArtefactsClient.tsx dans votre code
+export default function PodiumClient() { 
   const router = useRouter();
 
   const [isLeaving, setIsLeaving] = useState(false);
   const [sceneStyle, setSceneStyle] = useState<CSSProperties>(initialSceneStyle);
   const [currentSceneWidth, setCurrentSceneWidth] = useState<number>(DESIGN_WIDTH);
 
-  // MODIFIÉ: État pour stocker les données des artefacts, initialisé avec l'exemple
+  // États pour les données, le chargement et les erreurs
   const [topArtefacts, setTopArtefacts] = useState<PodiumArtefactData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
 
   useEffect(() => {
     const handleResize = () => {
@@ -105,12 +115,64 @@ export default function PodiumClient() { // Le nom du fichier est ArtefactsClien
     handleResize();
     window.addEventListener("resize", handleResize);
 
-    // Simuler le chargement des données des artefacts (vous remplacerez par votre appel API)
-    // Pour l'instant, nous utilisons les données d'exemple définies ci-dessus.
-    setTopArtefacts(topArtefactsDataExample);
+    // Fonction pour charger les données du leaderboard
+    const loadLeaderboard = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        // Fetch top 3 artefacts
+        const response = await fetch(`${BACKEND_BASE_URL}/api/leaderboard?page=1&per_page=3`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ description: `API Error ${response.status}`}));
+          throw new Error(errorData.description || `Erreur API: ${response.status} ${response.statusText}`);
+        }
+        const leaderboardData: ApiLeaderboardResponse = await response.json();
+
+        if (leaderboardData && leaderboardData.items && leaderboardData.items.length > 0) {
+          const transformedData = leaderboardData.items.map((item: ApiPodiumArtefactItem) => {
+            const artefactType = item.artyfactType.toLowerCase() as ArtefactType;
+            let imageUrl: string | undefined = undefined;
+
+            if (item.filepath) {
+              if (item.filepath.startsWith('http://') || item.filepath.startsWith('https://')) {
+                imageUrl = item.filepath;
+              } else {
+                // Assure que le chemin commence par un '/' s'il n'en a pas déjà un
+                const path = item.filepath.startsWith('/') ? item.filepath : `/${item.filepath}`;
+                imageUrl = `https://qwerteam.lareunion.webcup.hodi.host${path}`; 
+              }
+            }
+            const dataItem: PodiumArtefactData = { 
+              id: item.id, 
+              title: item.title, 
+              type: artefactType 
+            };
+            switch (artefactType) {
+              case 'video': dataItem.thumbnailUrl = imageUrl; break;
+              case 'photo': dataItem.photoUrl = imageUrl; break;
+              case 'audio': dataItem.musicImageUrl = imageUrl; break;
+            }
+            return dataItem;
+          });
+          setTopArtefacts(transformedData);
+        } else {
+          setTopArtefacts([]); // Pas d'items dans la réponse ou réponse vide
+          // Vous pourriez vouloir définir une erreur ou un message spécifique ici si leaderboardData.items est vide
+          // setError("Aucun artefact trouvé sur le leaderboard."); 
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement du leaderboard:", err);
+        setError(err instanceof Error ? err.message : "Une erreur inconnue est survenue.");
+        setTopArtefacts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadLeaderboard();
 
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, []); // Exécuter une seule fois au montage
 
   const dynamicFontSize = (originalPxSize: number): string => {
     return `${scaleToWidth(originalPxSize, currentSceneWidth)}px`;
@@ -141,12 +203,12 @@ export default function PodiumClient() { // Le nom du fichier est ArtefactsClien
   const buttonMarginBottom = 70;
 
   const podiumImageOriginalWidth = 1000;
-  const podiumImageOriginalHeight = 467; // IMPORTANT: Doit correspondre au ratio de votre image
+  const podiumImageOriginalHeight = 467; 
   const podiumButtonGap = -43;
 
   // Fonction pour rendre un artefact spécifique basé sur ses données
   const renderArtefact = (artefactData: PodiumArtefactData, widthStyle: string, heightStyle: string): ReactNode => {
-    if (!artefactData) return null;
+    if (!artefactData) return null; 
 
     switch (artefactData.type) {
       case 'video':
@@ -171,25 +233,105 @@ export default function PodiumClient() { // Le nom du fichier est ArtefactsClien
         return (
           <MusicArtefact
             musicImageUrl={artefactData.musicImageUrl}
-            width={widthStyle} // Pour l'audio, heightStyle pourrait être égal à widthStyle pour un carré
+            width={widthStyle} 
             height={heightStyle}
             altText={artefactData.title || 'Audio du podium'}
           />
         );
-      default: return null;
+      default: 
+        const _exhaustiveCheck: never = artefactData.type; // TypeScript check
+        console.warn("Type d'artefact non géré dans renderArtefact:", _exhaustiveCheck);
+        return null;
     }
   };
 
-  // Récupérer les données pour chaque position (s'assurer qu'elles existent)
+  // Récupérer les données pour chaque position
   const firstPlaceArtefactData = topArtefacts[0];
   const secondPlaceArtefactData = topArtefacts[1];
   const thirdPlaceArtefactData = topArtefacts[2];
 
   // Définir les tailles de design originales pour chaque position (en pixels de design)
-  // VOUS MODIFIEZ CES VALEURS POUR CHANGER LA TAILLE DES ARTEFACTS SUR LE PODIUM
-  const firstPlaceSizePx = { width: 220, height: (220 / 67) * 92 }; // Maintient le ratio 67:92
+  const firstPlaceSizePx = { width: 220, height: (220 / 67) * 92 }; 
   const secondPlaceSizePx = { width: 180, height: (180 / 67) * 92 };
-  const thirdPlaceSizePx = { width: 150, height: (150 / 67) * 92 }; // Pour l'audio, vous pourriez vouloir une hauteur = largeur
+  const thirdPlaceSizePx = { width: 150, height: (150 / 67) * 92 }; 
+
+
+  let podiumContent;
+  if (isLoading) {
+    podiumContent = <div style={{position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'black', fontSize: dynamicFontSize(30), fontFamily: "'Faculty Glyphic', serif", textAlign: 'center', padding: dynamicSize(50)}}>Chargement du Podium...</div>;
+  } else if (error) {
+    podiumContent = <div style={{position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'red', fontSize: dynamicFontSize(24), fontFamily: "'Faculty Glyphic', serif", textAlign: 'center', padding: dynamicSize(50)}}>Erreur: {error}</div>;
+  } else if (topArtefacts.length === 0 && !isLoading) { 
+    podiumContent = <div style={{position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'black', fontSize: dynamicFontSize(28), fontFamily: "'Faculty Glyphic', serif", textAlign: 'center', padding: dynamicSize(50)}}>Aucun artefact sur le podium pour le moment.</div>;
+  } else {
+    podiumContent = (
+      <>
+        {/* ARTEFACT 1ère PLACE */}
+        {firstPlaceArtefactData && (
+          <motion.div
+            key={firstPlaceArtefactData.id + "-podium"}
+            className="hover:scale-110 transition-transform transform-gpu cursor-pointer"
+            style={{
+              position: 'absolute',
+              top: '-50%', 
+              left: '38%',   
+              transform: 'translateX(-50%)', 
+              width: dynamicSize(firstPlaceSizePx.width),
+              zIndex: 3,      
+            }}
+            onClick={() => handlePodiumArtefactClick(firstPlaceArtefactData.id)}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+          >
+            {renderArtefact(firstPlaceArtefactData, dynamicSize(firstPlaceSizePx.width), dynamicSize(firstPlaceSizePx.height))}
+          </motion.div>
+        )}
+
+        {/* ARTEFACT 2ème PLACE */}
+        {secondPlaceArtefactData && (
+          <motion.div
+            key={secondPlaceArtefactData.id + "-podium"}
+            className="hover:scale-110 transition-transform transform-gpu cursor-pointer"
+            style={{
+              position: 'absolute',
+              top: '-13%',    
+              left: '14%',   
+              width: dynamicSize(secondPlaceSizePx.width),
+              zIndex: 2,
+            }}
+            onClick={() => handlePodiumArtefactClick(secondPlaceArtefactData.id)}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9 }}
+          >
+            {renderArtefact(secondPlaceArtefactData, dynamicSize(secondPlaceSizePx.width), dynamicSize(secondPlaceSizePx.height))}
+          </motion.div>
+        )}
+
+        {/* ARTEFACT 3ème PLACE */}
+        {thirdPlaceArtefactData && (
+          <motion.div
+            key={thirdPlaceArtefactData.id + "-podium"}
+            className="hover:scale-110 transition-transform transform-gpu cursor-pointer"
+            style={{
+              position: 'absolute',
+              top: '0%',     
+              left: '68%',    
+              width: dynamicSize(thirdPlaceSizePx.width),
+              zIndex: 1,
+            }}
+            onClick={() => handlePodiumArtefactClick(thirdPlaceArtefactData.id)}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.1 }}
+          >
+            {renderArtefact(thirdPlaceArtefactData, dynamicSize(thirdPlaceSizePx.width), dynamicSize(thirdPlaceSizePx.height))}
+          </motion.div>
+        )}
+      </>
+    );
+  }
 
 
   return (
@@ -210,9 +352,9 @@ export default function PodiumClient() { // Le nom du fichier est ArtefactsClien
             key="podium-page-content"
             style={{
               ...sceneStyle,
-              justifyContent: 'flex-end',
+              justifyContent: 'flex-end', 
             }}
-            className="flex flex-col items-center"
+            className="flex flex-col items-center" 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -220,7 +362,7 @@ export default function PodiumClient() { // Le nom du fichier est ArtefactsClien
           >
             <div
               style={{
-                position: 'relative',
+                position: 'relative', 
                 width: dynamicSize(podiumImageOriginalWidth),
                 marginBottom: dynamicSize(podiumButtonGap),
               }}
@@ -233,85 +375,12 @@ export default function PodiumClient() { // Le nom du fichier est ArtefactsClien
                 style={{ width: '100%', height: 'auto', display: 'block' }}
                 priority
               />
-
-              {/* ARTEFACT 1ère PLACE - Position et taille codées en dur */}
-              {firstPlaceArtefactData && (
-                <motion.div
-                  key={firstPlaceArtefactData.id + "-podium"}
-                  className="hover:scale-110 transition-transform transform-gpu cursor-pointer"
-                  style={{
-                    position: 'absolute',
-                    // MODIFIEZ CES VALEURS POUR LA POSITION DE LA 1ÈRE PLACE
-                    top: '-50%',     // Exemple: 10% du haut du conteneur podium
-                    left: '38%',    // Exemple: 50% de la gauche
-                    transform: 'translateX(-50%)', // Pour centrer horizontalement
-                    width: dynamicSize(firstPlaceSizePx.width),
-                    // La hauteur est gérée par le composant artefact via ses props width/height
-                    zIndex: 3,      // Pour être au-dessus des autres
-                  }}
-                  onClick={() => handlePodiumArtefactClick(firstPlaceArtefactData.id)}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7 }} // Délai légèrement plus long pour le gagnant
-                >
-                  {renderArtefact(firstPlaceArtefactData, dynamicSize(firstPlaceSizePx.width), dynamicSize(firstPlaceSizePx.height))}
-                </motion.div>
-              )}
-
-              {/* ARTEFACT 2ème PLACE - Position et taille codées en dur */}
-              {secondPlaceArtefactData && (
-                <motion.div
-                  key={secondPlaceArtefactData.id + "-podium"}
-                  className="hover:scale-110 transition-transform transform-gpu cursor-pointer"
-                  style={{
-                    position: 'absolute',
-                    // MODIFIEZ CES VALEURS POUR LA POSITION DE LA 2ÈME PLACE
-                    top: '-13%',     // Exemple
-                    left: '14%',    // Exemple
-                    width: dynamicSize(secondPlaceSizePx.width),
-                    zIndex: 2,
-                  }}
-                  onClick={() => handlePodiumArtefactClick(secondPlaceArtefactData.id)}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.9 }}
-                >
-                  {renderArtefact(secondPlaceArtefactData, dynamicSize(secondPlaceSizePx.width), dynamicSize(secondPlaceSizePx.height))}
-                </motion.div>
-              )}
-
-              {/* ARTEFACT 3ème PLACE - Position et taille codées en dur */}
-              {thirdPlaceArtefactData && (
-                <motion.div
-                  key={thirdPlaceArtefactData.id + "-podium"}
-                  className="hover:scale-110 transition-transform transform-gpu cursor-pointer"
-                  style={{
-                    position: 'absolute',
-                    // MODIFIEZ CES VALEURS POUR LA POSITION DE LA 3ÈME PLACE
-                    top: '0%',     // Exemple
-                    left: '68%',    // Exemple
-                    // Pour un artefact audio carré, vous pourriez vouloir que la hauteur soit égale à la largeur
-                    width: dynamicSize(thirdPlaceSizePx.width),
-                    zIndex: 1,
-                  }}
-                  onClick={() => handlePodiumArtefactClick(thirdPlaceArtefactData.id)}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.1 }}
-                >
-                  {renderArtefact(
-                    thirdPlaceArtefactData,
-                    dynamicSize(thirdPlaceSizePx.width),
-                    // Si c'est audio et que vous voulez un carré: dynamicSize(thirdPlaceSizePx.width)
-                    // Sinon, pour maintenir le ratio 67:92 (ou autre défini dans le composant) :
-                    dynamicSize(thirdPlaceSizePx.height)
-                  )}
-                </motion.div>
-              )}
+              {/* Le contenu du podium (artefacts ou messages) est rendu ici */}
+              {podiumContent}
             </div>
 
             <div
-              className="text-center mr-230"
+              className="text-center mr-230" 
               style={{ marginBottom: dynamicSize(buttonMarginBottom), width: '100%' }}
             >
               <button

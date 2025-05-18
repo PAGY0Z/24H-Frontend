@@ -1,40 +1,59 @@
 "use client";
 
-import React, { useState, useEffect, CSSProperties, useRef, ReactNode } from "react"; // ReactNode ajouté
-import { useRouter } from "next/navigation"; // useSearchParams n'est pas utilisé dans cette version statique
+import React, { useState, useEffect, CSSProperties, useRef, ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation"; // useSearchParams ajouté
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 
-// AJOUTÉ: Importation des composants d'artefacts
-// Ajustez ces chemins si vos composants sont dans un autre dossier.
-// Supposant que ArtefactShowClient.tsx est dans src/app/quelquechose/ et composants dans src/components/
-// Si ArtefactShowClient.tsx est à la racine de app, alors ce serait ../components/...
-// Pour l'exemple, je vais supposer une structure où ArtefactShowClient est un niveau plus profond que components.
-// Si ArtefactShowClient.tsx est dans src/app/artefact_show/page.tsx par exemple:
+// Importation des composants d'artefacts
+// Assurez-vous que ces chemins sont corrects pour votre structure de projet.
 import VideoArtefact from '@/app/components/Artefacts/VideoArtefact';
 import PhotoArtefact from '@/app/components/Artefacts/PhotoArtefact';
 import MusicArtefact from '@/app/components/Artefacts/MusicArtefact';
 
-// AJOUTÉ: Types pour les données des artefacts (peut être dans un fichier partagé types.ts)
-type ArtefactType = 'video' | 'photo' | 'audio';
+// Types pour les données des artefacts
+type ArtefactType = 'video' | 'photo' | 'audio'; // Doit être en minuscules pour correspondre à la logique du switch
 type ArtefactTypeState = ArtefactType | null;
 
+// Interface pour les données brutes de l'API
+interface ApiArtefactResponse {
+  id: string | number;
+  votecount: number;
+  author: string;
+  title: string;
+  description: string;
+  isNegative: boolean;
+  isPositive: boolean;
+  emoji: string;
+  artyfactType: string; // Vient de l'API en MAJUSCULES (ex: "VIDEO")
+  filepath: string | null;
+  created_at?: string;
+  updated_at?: string;
+  // Ajoutez d'autres champs si votre API les retourne et que vous en avez besoin
+}
+
+// Interface pour les données transformées utilisées par le frontend
 interface ArtefactData {
   id?: string | number;
   type?: ArtefactTypeState;
   title?: string;
   description?: string;
-  thumbnailUrl?: string;
-  videoUrl?: string;
-  photoUrl?: string;
-  musicImageUrl?: string;
+  thumbnailUrl?: string;   // Pour Vidéo (construit à partir de filepath)
+  videoUrl?: string;       // Pour Vidéo (URL réelle, si disponible)
+  photoUrl?: string;       // Pour Photo (construit à partir de filepath)
+  musicImageUrl?: string;  // Pour Audio (construit à partir de filepath, ou défaut)
   initialVotes?: number;
-  userHasVoted?: boolean;
+  userHasVoted?: boolean;  // Pour l'instant, nous allons le laisser à false par défaut
+  author?: string;
 }
 
 // Résolution de design de référence
 const DESIGN_WIDTH = 1920;
 const DESIGN_HEIGHT = 1080; // Ratio 16:9
+
+// URL de base de votre backend pour les assets et l'API
+const BACKEND_BASE_URL = "https://backend.qwerteam.lareunion.webcup.hodi.host";
+
 
 // Fonction utilitaire pour la mise à l'échelle
 const scaleToWidth = (originalPx: number, currentSceneWidth: number): number => {
@@ -66,17 +85,22 @@ const conseilsButtonMinWidth = 280;
 
 export default function ArtefactShowClient() {
   const router = useRouter();
+  const searchParams = useSearchParams(); // Pour lire l'ID de l'URL
 
   const [isLeaving, setIsLeaving] = useState(false);
   const [sceneStyle, setSceneStyle] = useState<CSSProperties>({});
   const [currentSceneWidth, setCurrentSceneWidth] = useState<number>(DESIGN_WIDTH);
 
-  // MODIFIÉ: États pour les données de l'artefact et le système de vote
-  const [artefactTitle, setArtefactTitle] = useState("Chargement du titre...");
-  const [artefactDescription, setArtefactDescription] = useState("Chargement de la description...");
+  // États pour les données de l'artefact, le chargement et les erreurs
+  const [artefactTitle, setArtefactTitle] = useState("Chargement...");
+  const [artefactDescription, setArtefactDescription] = useState("Veuillez patienter...");
   const [currentArtefactType, setCurrentArtefactType] = useState<ArtefactTypeState>(null);
   const [currentArtefactData, setCurrentArtefactData] = useState<ArtefactData>({});
-  const [hasVoted, setHasVoted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // États pour le système de vote
+  const [hasVoted, setHasVoted] = useState(false); 
   const [totalVotes, setTotalVotes] = useState(0);
 
   const artefactZoneRef = useRef<HTMLDivElement>(null);
@@ -113,32 +137,101 @@ export default function ArtefactShowClient() {
     handleResize();
     window.addEventListener("resize", handleResize);
 
-    // MODIFIÉ: Charger un artefact photo par défaut
-    const loadDefaultArtefact = () => {
-      const defaultPhotoData: ArtefactData = {
-        id: 'default_photo_01', // Un ID statique pour l'exemple
-        type: 'photo',
-        title: 'Photographie d\'Exemple',
-        description: `Ceci est une description pour la photographie affichée par défaut. Vous pourrez rendre ces informations dynamiques plus tard en les reliant à votre backend. N'oubliez pas de placer une image '/placeholder_photo.jpg' dans votre dossier /public pour que cela fonctionne. ${"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.".substring(0,150)}`,
-        photoUrl: '/placeholder_photo.jpg', // Assurez-vous que cette image existe
-        initialVotes: 77, // Exemple de votes initiaux
-        userHasVoted: false, // Exemple
-      };
+    // Fonction pour charger les détails de l'artefact spécifique depuis l'API
+    const fetchArtefactDetails = async () => {
+      const artefactId = searchParams.get("id");
+      console.log(artefactId); // ici il n'as jamais imprimé artefact id
+      
 
-      setArtefactTitle(defaultPhotoData.title || "Titre par Défaut");
-      setArtefactDescription(defaultPhotoData.description || "Description par Défaut");
-      setCurrentArtefactType(defaultPhotoData.type || null);
-      setCurrentArtefactData(defaultPhotoData);
-      setTotalVotes(defaultPhotoData.initialVotes || 0);
-      setHasVoted(defaultPhotoData.userHasVoted || false);
+      if (!artefactId) {
+        setError("ID de l'artefact manquant dans l'URL.");
+        setIsLoading(false);
+        setArtefactTitle("Erreur");
+        setArtefactDescription("Aucun ID d'artefact fourni.");
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/artifacts/${artefactId}`);
+        console.log(response);
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error("Artefact non trouvé");
+          }
+          throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
+        }
+        
+        const apiData: ApiArtefactResponse = await response.json();
+
+        // Transformation des données de l'API
+        const artefactTypeApi = apiData.artyfactType.toLowerCase() as ArtefactType;
+        let imageUrl: string | undefined = undefined;
+
+        if (apiData.filepath) {
+          if (apiData.filepath.startsWith('http://') || apiData.filepath.startsWith('https://')) {
+            imageUrl = apiData.filepath;
+          } else {
+            const path = apiData.filepath.startsWith('/') ? apiData.filepath : `/${apiData.filepath}`;
+            imageUrl = `https://qwerteam.lareunion.webcup.hodi.host${path}`;
+          }
+        }
+        
+        const transformedData: ArtefactData = {
+          id: apiData.id,
+          type: artefactTypeApi,
+          title: apiData.title,
+          description: apiData.description,
+          initialVotes: apiData.votecount,
+          author: apiData.author,
+          userHasVoted: false, // TODO: Logique à implémenter si vous stockez les votes par utilisateur
+        };
+
+        switch (artefactTypeApi) {
+          case 'video':
+            transformedData.thumbnailUrl = imageUrl;
+            // transformedData.videoUrl = imageUrl; // Si filepath est la vidéo elle-même
+            break;
+          case 'photo':
+            transformedData.photoUrl = imageUrl;
+            break;
+          case 'audio':
+            // Si filepath est une image pour l'audio, l'utiliser.
+            // Sinon, musicImageUrl restera undefined et le composant utilisera son défaut.
+            transformedData.musicImageUrl = imageUrl;
+            break;
+        }
+        
+        setArtefactTitle(transformedData.title || "Titre Indisponible");
+        setArtefactDescription(transformedData.description || "Description Indisponible.");
+        setCurrentArtefactType(transformedData.type || null);
+        setCurrentArtefactData(transformedData);
+        setTotalVotes(transformedData.initialVotes || 0);
+        // setHasVoted(transformedData.userHasVoted || false); // À gérer si l'API renvoie cette info
+
+      } catch (err) {
+        console.error("Erreur lors du chargement des détails de l'artefact:", err);
+        if (err instanceof Error) {
+            setError(err.message);
+        } else {
+            setError("Une erreur inconnue est survenue lors du chargement.");
+        }
+        setArtefactTitle("Erreur de chargement");
+        setArtefactDescription(`Impossible de récupérer les détails de l'artefact`);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    loadDefaultArtefact();
+    fetchArtefactDetails();
 
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, []); // Le tableau de dépendances vide exécute cela une fois au montage
+  }, [searchParams]); // Se ré-exécute si l'ID dans l'URL change
 
   const dynamicFontSize = (originalPxSize: number): string => {
     return `${scaleToWidth(originalPxSize, currentSceneWidth)}px`;
@@ -155,15 +248,38 @@ export default function ArtefactShowClient() {
     }, 600);
   };
 
-  const handleSupportMemory = () => {
-    if (!hasVoted) {
+  const handleSupportMemory = async () => {
+    if (!hasVoted && currentArtefactData.id) {
       console.log("Support this memory clicked! Artefact ID:", currentArtefactData.id);
+      // Optimistic UI update
       setHasVoted(true);
       setTotalVotes(prevTotalVotes => prevTotalVotes + 1);
-      // TODO: Appel API pour enregistrer le vote pour currentArtefactData.id
+
+      try {
+        // TODO: Adaptez l'URL et la méthode pour votre API de vote
+        const response = await fetch(`${BACKEND_BASE_URL}/api/artifacts/${currentArtefactData.id}/vote`, { 
+          method: 'POST', // ou 'PUT', selon votre API
+          // headers: { 'Content-Type': 'application/json', /* Autres headers si besoin */ },
+          // body: JSON.stringify({ /* Données du vote si besoin */ })
+        });
+        if (!response.ok) {
+          // Si l'API échoue, annuler le vote localement
+          setHasVoted(false);
+          setTotalVotes(prevTotalVotes => prevTotalVotes - 1);
+          throw new Error(`Erreur API lors du vote: ${response.statusText}`);
+        }
+        // Optionnel: Mettre à jour avec les données de la réponse si l'API renvoie le nouveau total de votes
+        // const voteResult = await response.json();
+        // setTotalVotes(voteResult.newVoteCount); 
+        console.log("Vote enregistré avec succès via API.");
+      } catch (voteError) {
+        console.error("Erreur lors de l'enregistrement du vote:", voteError);
+        // L'UI a déjà été annulée
+        // Afficher un message d'erreur à l'utilisateur si nécessaire
+      }
     }
   };
-
+  
   const infoBoxPadding = 20;
   const titleFontSize = 30;
   const descriptionFontSize = 20;
@@ -172,17 +288,22 @@ export default function ArtefactShowClient() {
   const buttonFontSize = 25;
   const likeIconSize = 30;
 
-  // AJOUTÉ: Fonction pour rendre l'artefact principal
+  // Fonction pour rendre l'artefact principal
   const renderMainArtefact = (): ReactNode => {
     const artefactDisplayWidth = dynamicSize(ARTEFACT_PLACEHOLDER_DESIGN_WIDTH);
     const artefactDisplayHeight = dynamicSize(ARTEFACT_PLACEHOLDER_DESIGN_HEIGHT);
 
     const handleArtefactDisplayClick = () => {
       console.log(`Artefact ${currentArtefactType} cliqué:`, currentArtefactData);
-      // Ajoutez ici la logique pour lire une vidéo, agrandir une photo, etc.
+      // Logique pour interagir avec l'artefact (ex: jouer vidéo, agrandir photo)
+      if (currentArtefactType === 'video' && currentArtefactData.videoUrl) {
+        // Exemple: ouvrir la vidéo dans un nouvel onglet ou un lecteur modal
+        // window.open(currentArtefactData.videoUrl, '_blank');
+        alert(`Lecture de la vidéo : ${currentArtefactData.videoUrl} (simulation)`);
+      }
     };
 
-    if (!currentArtefactType) {
+    if (isLoading) {
       return (
         <div style={{
             width: artefactDisplayWidth, height: artefactDisplayHeight,
@@ -195,15 +316,31 @@ export default function ArtefactShowClient() {
         </div>
       );
     }
+    
+    if (error || !currentArtefactType) {
+       return (
+        <div style={{
+            width: artefactDisplayWidth, height: artefactDisplayHeight,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.1)', color: 'rgba(0,0,0,0.7)', borderRadius: dynamicSize(8),
+            border: `${dynamicSize(1)} dashed rgba(0,0,0,0.4)`, fontFamily: "'Faculty Glyphic', serif",
+            textAlign: 'center', padding: dynamicSize(20), fontSize: dynamicFontSize(18)
+        }}>
+          {error ? `Erreur: ${error}` : "Aucun artefact à afficher."}
+        </div>
+      );
+    }
+
 
     switch (currentArtefactType) {
       case 'video':
         return (
           <VideoArtefact
             thumbnailUrl={currentArtefactData.thumbnailUrl}
+            videoFrameUrl="/video.png" // Cadre par défaut
             width={artefactDisplayWidth}
             height={artefactDisplayHeight}
-            altText={artefactTitle} // Utilise l'état artefactTitle
+            altText={artefactTitle}
             onClick={handleArtefactDisplayClick}
           />
         );
@@ -211,33 +348,33 @@ export default function ArtefactShowClient() {
         return (
           <PhotoArtefact
             photoUrl={currentArtefactData.photoUrl}
+            photoFrameUrl="/cadre_photo.png" // Cadre par défaut
             width={artefactDisplayWidth}
             height={artefactDisplayHeight}
-            altText={artefactTitle} // Utilise l'état artefactTitle
+            altText={artefactTitle}
             onClick={handleArtefactDisplayClick}
           />
         );
       case 'audio':
         return (
           <MusicArtefact
-            musicImageUrl={currentArtefactData.musicImageUrl}
+            musicImageUrl={currentArtefactData.musicImageUrl || "/musique.png"} // Image spécifique ou défaut
             width={artefactDisplayWidth}
             height={artefactDisplayHeight}
-            altText={artefactTitle} // Utilise l'état artefactTitle
+            altText={artefactTitle}
             onClick={handleArtefactDisplayClick}
           />
         );
       default:
-        // Normalement intercepté par !currentArtefactType, mais bon pour l'exhaustivité
         const _exhaustiveCheck: never = currentArtefactType;
-        console.warn("Type d'artefact inconnu:", _exhaustiveCheck)
+        console.warn("Type d'artefact inconnu dans renderMainArtefact:", _exhaustiveCheck);
         return <div style={{color: 'red'}}>Erreur: Type d&apos;artefact non supporté.</div>;
     }
   };
 
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black padding-20"> {/* padding-20 est une classe personnalisée? */}
+    <div className="fixed inset-0 flex items-center justify-center bg-black padding-20"> {/* padding-20 classe personnalisée? */}
       <AnimatePresence mode="wait">
         {isLeaving && (
           <motion.div
@@ -266,21 +403,16 @@ export default function ArtefactShowClient() {
               height: dynamicSize(CONTENT_ROW_DESIGN_HEIGHT_PX),
             }}
           >
-            {/* Bloc Gauche (Affichage de l'artefact) - MODIFIÉ */}
             <div
               ref={artefactZoneRef}
-              className="flex items-center justify-center bg-transparent rounded-xl" 
-              // J'ai enlevé shadow-lg et overflow-hidden ici, car les composants d'artefact pourraient avoir leurs propres styles de bordure/ombre.
-              // Si vous voulez un cadre/ombre commun autour de la zone, vous pouvez les remettre.
+              className="flex items-center justify-center bg-transparent rounded-xl"
               style={{
-                width: dynamicSize(ARTEFACT_PLACEHOLDER_DESIGN_WIDTH + 20), // Ce conteneur peut être légèrement plus grand
+                width: dynamicSize(ARTEFACT_PLACEHOLDER_DESIGN_WIDTH + 20),
               }}
             >
-              {/* APPEL DE LA FONCTION DE RENDU DE L'ARTEFACT */}
               {renderMainArtefact()}
             </div>
 
-            {/* Bloc Droit (Informations) */}
             <div
               className="rounded-xl shadow-lg flex flex-col mt-15" // mt-15 classe personnalisée?
               style={{
@@ -302,7 +434,7 @@ export default function ArtefactShowClient() {
                   flexShrink: 0,
                 }}
               >
-                {artefactTitle} {/* MODIFIÉ pour utiliser l'état */}
+                {artefactTitle}
               </h2>
               <div className="overflow-y-auto flex-grow" style={{ minHeight: 0 }}>
                 <p
@@ -314,11 +446,10 @@ export default function ArtefactShowClient() {
                     whiteSpace: 'pre-line',
                   }}
                 >
-                  {artefactDescription} {/* MODIFIÉ pour utiliser l'état */}
+                  {artefactDescription}
                 </p>
               </div>
 
-              {/* Compteur de votes */}
               <div
                 className="flex items-center self-start"
                 style={{
@@ -350,7 +481,6 @@ export default function ArtefactShowClient() {
             </div>
           </div>
 
-          {/* Conteneur pour les boutons du bas */}
           <div
             className="flex justify-center items-center pt-4 mb-10"
             style={{ gap: dynamicSize(30), marginTop: dynamicSize(0) }}
@@ -380,7 +510,7 @@ export default function ArtefactShowClient() {
                 textDecoration: 'none',
               }}
             >
-              GET ADVICE
+              AI REVIEW
             </a>
             {hasVoted ? (
               <div
