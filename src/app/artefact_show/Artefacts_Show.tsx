@@ -1,9 +1,36 @@
 "use client";
 
-import React, { useState, useEffect, CSSProperties, useRef } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, CSSProperties, useRef, ReactNode } from "react"; // ReactNode ajouté
+import { useRouter } from "next/navigation"; // useSearchParams n'est pas utilisé dans cette version statique
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
+
+// AJOUTÉ: Importation des composants d'artefacts
+// Ajustez ces chemins si vos composants sont dans un autre dossier.
+// Supposant que ArtefactShowClient.tsx est dans src/app/quelquechose/ et composants dans src/components/
+// Si ArtefactShowClient.tsx est à la racine de app, alors ce serait ../components/...
+// Pour l'exemple, je vais supposer une structure où ArtefactShowClient est un niveau plus profond que components.
+// Si ArtefactShowClient.tsx est dans src/app/artefact_show/page.tsx par exemple:
+import VideoArtefact from '@/app/components/Artefacts/VideoArtefact';
+import PhotoArtefact from '@/app/components/Artefacts/PhotoArtefact';
+import MusicArtefact from '@/app/components/Artefacts/MusicArtefact';
+
+// AJOUTÉ: Types pour les données des artefacts (peut être dans un fichier partagé types.ts)
+type ArtefactType = 'video' | 'photo' | 'audio';
+type ArtefactTypeState = ArtefactType | null;
+
+interface ArtefactData {
+  id?: string | number;
+  type?: ArtefactTypeState;
+  title?: string;
+  description?: string;
+  thumbnailUrl?: string;
+  videoUrl?: string;
+  photoUrl?: string;
+  musicImageUrl?: string;
+  initialVotes?: number;
+  userHasVoted?: boolean;
+}
 
 // Résolution de design de référence
 const DESIGN_WIDTH = 1920;
@@ -35,9 +62,7 @@ const voteCounterFontSize = 22;
 const voteCounterIconSize = 28;
 const voteCounterMarginTop = 20;
 const voteCounterImageMarginLeft = 8;
-
-// AJOUTÉ: Constante pour la largeur minimale du nouveau bouton (optionnel, pour cohérence)
-const conseilsButtonMinWidth = 280; // Ajustez au besoin
+const conseilsButtonMinWidth = 280;
 
 export default function ArtefactShowClient() {
   const router = useRouter();
@@ -45,6 +70,12 @@ export default function ArtefactShowClient() {
   const [isLeaving, setIsLeaving] = useState(false);
   const [sceneStyle, setSceneStyle] = useState<CSSProperties>({});
   const [currentSceneWidth, setCurrentSceneWidth] = useState<number>(DESIGN_WIDTH);
+
+  // MODIFIÉ: États pour les données de l'artefact et le système de vote
+  const [artefactTitle, setArtefactTitle] = useState("Chargement du titre...");
+  const [artefactDescription, setArtefactDescription] = useState("Chargement de la description...");
+  const [currentArtefactType, setCurrentArtefactType] = useState<ArtefactTypeState>(null);
+  const [currentArtefactData, setCurrentArtefactData] = useState<ArtefactData>({});
   const [hasVoted, setHasVoted] = useState(false);
   const [totalVotes, setTotalVotes] = useState(0);
 
@@ -67,7 +98,6 @@ export default function ArtefactShowClient() {
 
       setCurrentSceneWidth(newWidth);
       const newPaddingValue = scaleToWidth(40, newWidth);
-
       const newStyles: CSSProperties = {
         ...initialSceneStyleBase,
         width: `${newWidth}px`,
@@ -83,15 +113,32 @@ export default function ArtefactShowClient() {
     handleResize();
     window.addEventListener("resize", handleResize);
 
-    const fetchInitialData = () => {
-      setTotalVotes(1387);
+    // MODIFIÉ: Charger un artefact photo par défaut
+    const loadDefaultArtefact = () => {
+      const defaultPhotoData: ArtefactData = {
+        id: 'default_photo_01', // Un ID statique pour l'exemple
+        type: 'photo',
+        title: 'Photographie d\'Exemple',
+        description: `Ceci est une description pour la photographie affichée par défaut. Vous pourrez rendre ces informations dynamiques plus tard en les reliant à votre backend. N'oubliez pas de placer une image '/placeholder_photo.jpg' dans votre dossier /public pour que cela fonctionne. ${"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.".substring(0,150)}`,
+        photoUrl: '/placeholder_photo.jpg', // Assurez-vous que cette image existe
+        initialVotes: 77, // Exemple de votes initiaux
+        userHasVoted: false, // Exemple
+      };
+
+      setArtefactTitle(defaultPhotoData.title || "Titre par Défaut");
+      setArtefactDescription(defaultPhotoData.description || "Description par Défaut");
+      setCurrentArtefactType(defaultPhotoData.type || null);
+      setCurrentArtefactData(defaultPhotoData);
+      setTotalVotes(defaultPhotoData.initialVotes || 0);
+      setHasVoted(defaultPhotoData.userHasVoted || false);
     };
-    fetchInitialData();
+
+    loadDefaultArtefact();
 
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, []);
+  }, []); // Le tableau de dépendances vide exécute cela une fois au montage
 
   const dynamicFontSize = (originalPxSize: number): string => {
     return `${scaleToWidth(originalPxSize, currentSceneWidth)}px`;
@@ -110,10 +157,10 @@ export default function ArtefactShowClient() {
 
   const handleSupportMemory = () => {
     if (!hasVoted) {
-      console.log("Support this memory clicked!");
+      console.log("Support this memory clicked! Artefact ID:", currentArtefactData.id);
       setHasVoted(true);
       setTotalVotes(prevTotalVotes => prevTotalVotes + 1);
-      // ... (API call logic)
+      // TODO: Appel API pour enregistrer le vote pour currentArtefactData.id
     }
   };
 
@@ -125,11 +172,72 @@ export default function ArtefactShowClient() {
   const buttonFontSize = 25;
   const likeIconSize = 30;
 
-  const loremTitle = "Artefact Title";
-  const loremDescription = `This is a detailed description of the artefact, highlighting its unique features and historical significance. The artefact is well-preserved and offers insights into the past. Further research is ongoing to uncover more about its origins and the stories it holds. We encourage visitors to appreciate its craftsmanship and the context from which it came. This text is elongated to test scrolling functionality within the reduced height. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.`;
+  // AJOUTÉ: Fonction pour rendre l'artefact principal
+  const renderMainArtefact = (): ReactNode => {
+    const artefactDisplayWidth = dynamicSize(ARTEFACT_PLACEHOLDER_DESIGN_WIDTH);
+    const artefactDisplayHeight = dynamicSize(ARTEFACT_PLACEHOLDER_DESIGN_HEIGHT);
+
+    const handleArtefactDisplayClick = () => {
+      console.log(`Artefact ${currentArtefactType} cliqué:`, currentArtefactData);
+      // Ajoutez ici la logique pour lire une vidéo, agrandir une photo, etc.
+    };
+
+    if (!currentArtefactType) {
+      return (
+        <div style={{
+            width: artefactDisplayWidth, height: artefactDisplayHeight,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', borderRadius: dynamicSize(8),
+            border: `${dynamicSize(1)} dashed rgba(255,255,255,0.4)`, fontFamily: "'Faculty Glyphic', serif",
+            textAlign: 'center', padding: dynamicSize(10)
+        }}>
+          Chargement de l&apos;artefact...
+        </div>
+      );
+    }
+
+    switch (currentArtefactType) {
+      case 'video':
+        return (
+          <VideoArtefact
+            thumbnailUrl={currentArtefactData.thumbnailUrl}
+            width={artefactDisplayWidth}
+            height={artefactDisplayHeight}
+            altText={artefactTitle} // Utilise l'état artefactTitle
+            onClick={handleArtefactDisplayClick}
+          />
+        );
+      case 'photo':
+        return (
+          <PhotoArtefact
+            photoUrl={currentArtefactData.photoUrl}
+            width={artefactDisplayWidth}
+            height={artefactDisplayHeight}
+            altText={artefactTitle} // Utilise l'état artefactTitle
+            onClick={handleArtefactDisplayClick}
+          />
+        );
+      case 'audio':
+        return (
+          <MusicArtefact
+            musicImageUrl={currentArtefactData.musicImageUrl}
+            width={artefactDisplayWidth}
+            height={artefactDisplayHeight}
+            altText={artefactTitle} // Utilise l'état artefactTitle
+            onClick={handleArtefactDisplayClick}
+          />
+        );
+      default:
+        // Normalement intercepté par !currentArtefactType, mais bon pour l'exhaustivité
+        const _exhaustiveCheck: never = currentArtefactType;
+        console.warn("Type d'artefact inconnu:", _exhaustiveCheck)
+        return <div style={{color: 'red'}}>Erreur: Type d&apos;artefact non supporté.</div>;
+    }
+  };
+
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black padding-20">
+    <div className="fixed inset-0 flex items-center justify-center bg-black padding-20"> {/* padding-20 est une classe personnalisée? */}
       <AnimatePresence mode="wait">
         {isLeaving && (
           <motion.div
@@ -158,38 +266,23 @@ export default function ArtefactShowClient() {
               height: dynamicSize(CONTENT_ROW_DESIGN_HEIGHT_PX),
             }}
           >
+            {/* Bloc Gauche (Affichage de l'artefact) - MODIFIÉ */}
             <div
               ref={artefactZoneRef}
-              className="flex items-center justify-center bg-transparent rounded-xl shadow-lg overflow-hidden"
+              className="flex items-center justify-center bg-transparent rounded-xl" 
+              // J'ai enlevé shadow-lg et overflow-hidden ici, car les composants d'artefact pourraient avoir leurs propres styles de bordure/ombre.
+              // Si vous voulez un cadre/ombre commun autour de la zone, vous pouvez les remettre.
               style={{
-                width: dynamicSize(ARTEFACT_PLACEHOLDER_DESIGN_WIDTH + 20),
+                width: dynamicSize(ARTEFACT_PLACEHOLDER_DESIGN_WIDTH + 20), // Ce conteneur peut être légèrement plus grand
               }}
             >
-              <div
-                style={{
-                  height: '80%',
-                  aspectRatio: '67 / 92',
-                  maxWidth: '100%',
-                  backgroundColor: 'rgba(0,0,0,0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: dynamicSize(8),
-                  border: `${dynamicSize(1)} dashed rgba(255,255,255,0.4)`,
-                  color: 'rgba(255,255,255,0.6)',
-                  fontSize: dynamicFontSize(16),
-                  textAlign: 'center',
-                  padding: dynamicSize(10),
-                  boxSizing: 'border-box',
-                  fontFamily: "'Faculty Glyphic', serif",
-                }}
-              >
-                Zone Artefact<br />(Ratio 67:92)
-              </div>
+              {/* APPEL DE LA FONCTION DE RENDU DE L'ARTEFACT */}
+              {renderMainArtefact()}
             </div>
 
+            {/* Bloc Droit (Informations) */}
             <div
-              className="rounded-xl shadow-lg flex flex-col mt-15"
+              className="rounded-xl shadow-lg flex flex-col mt-15" // mt-15 classe personnalisée?
               style={{
                 flex: 1,
                 backgroundColor: "rgba(255, 255, 255, 0.3)",
@@ -209,7 +302,7 @@ export default function ArtefactShowClient() {
                   flexShrink: 0,
                 }}
               >
-                {loremTitle}
+                {artefactTitle} {/* MODIFIÉ pour utiliser l'état */}
               </h2>
               <div className="overflow-y-auto flex-grow" style={{ minHeight: 0 }}>
                 <p
@@ -221,10 +314,11 @@ export default function ArtefactShowClient() {
                     whiteSpace: 'pre-line',
                   }}
                 >
-                  {loremDescription}
+                  {artefactDescription} {/* MODIFIÉ pour utiliser l'état */}
                 </p>
               </div>
 
+              {/* Compteur de votes */}
               <div
                 className="flex items-center self-start"
                 style={{
@@ -258,10 +352,9 @@ export default function ArtefactShowClient() {
 
           {/* Conteneur pour les boutons du bas */}
           <div
-            className="flex justify-center items-center pt-4 mb-10" // Tailwind: pt-4 et mb-10 sont des classes valides si configurées
-            style={{ gap: dynamicSize(30), marginTop: dynamicSize(0) }} // `gap` est géré par flexbox, marginTop est ok
+            className="flex justify-center items-center pt-4 mb-10"
+            style={{ gap: dynamicSize(30), marginTop: dynamicSize(0) }}
           >
-            {/* BOUTON BACK */}
             <button
               onClick={handleReturn}
               className="bg-[#8B4513] hover:bg-[#5C3210] font-bold text-white rounded-full transition flex items-center justify-center"
@@ -274,26 +367,21 @@ export default function ArtefactShowClient() {
             >
               BACK
             </button>
-
-            {/* AJOUTÉ: Bouton "Obtenir des conseils" */}
             <a
               href="https://chatgpt.com/g/g-68288192e87c8191b7aea6ae5e8a8cdc-the-end-page-museum"
               target="_blank"
-              rel="noopener noreferrer" // Pour la sécurité et la performance
-              className="bg-green-600 hover:bg-green-700 font-bold text-white rounded-full transition flex items-center justify-center" // Classes Tailwind pour le style
+              rel="noopener noreferrer"
+              className="bg-green-600 hover:bg-green-700 font-bold text-white rounded-full transition flex items-center justify-center"
               style={{
                 fontFamily: "'Faculty Glyphic', serif",
                 fontSize: dynamicFontSize(buttonFontSize),
                 padding: `${dynamicSize(buttonPaddingY)} ${dynamicSize(buttonPaddingX)}`,
-                minWidth: dynamicSize(conseilsButtonMinWidth), // Utilisation de la nouvelle constante
-                textDecoration: 'none', // Pour enlever le soulignement par défaut des liens
+                minWidth: dynamicSize(conseilsButtonMinWidth),
+                textDecoration: 'none',
               }}
             >
               GET ADVICE
             </a>
-            {/* FIN DE L'AJOUT du bouton "Obtenir des conseils" */}
-
-            {/* Bouton "Support this memory" / Message "VOTE ADDED" */}
             {hasVoted ? (
               <div
                 className="flex items-center justify-center font-bold rounded-full"
